@@ -1,0 +1,129 @@
+
+\chapter{Проекты}
+\paragraph{Проект ecc:} \label{extras:ecc} 
+\url{https://github.com/m-blg/c_lang}
+
+\paragraph{Библиотека с основными примитивами:} \label{extras:c-core}
+\url{https://github.com/m-blg/c_core}
+
+
+\chapter{Примитивы}
+\section*{Аллокаторы}
+\lstinputlisting[language={c},caption={glibc аллокатор},label={extras:glibc_alloc}]{listings/intro/c_alloc.c}
+
+\lstinputlisting[language={c},caption={Арена аллокатор},label={extras:arena_alloc}]{listings/intro/arena.c}
+
+\section*{Форматтер}
+\lstinputlisting[language={c},caption={Имплементация основных методов StringFormatter},label={extras:fmt_impl}]{listings/intro/fmt.c}
+
+
+\chapter{Лексический разбор}
+
+\section*{Определения Си}
+\lstinputlisting[language={c},caption={defs.h},label={extras:c_defs}]{listings/lexing/def.h}
+
+\section*{Структура токена Си}
+\lstinputlisting[language={c},caption={Структура токена Си},label={extras:c_token}]{listings/lexing/token.c}
+
+\section*{Примеры функций лексического разбора}
+\lstinputlisting[language={c},caption={Примеры функций лексического разбора},label={extras:lexer_fns}]{listings/lexing/lexer_fns.c}
+
+\section*{Функции отладочного форматирования токенов}
+\lstinputlisting[language={c},caption={Функции отладочного форматирования токенов},label={extras:token_dbg_print}]{listings/lexing/token.c}
+
+
+\section*{Функция препроцессора}
+\lstinputlisting[language={c},caption={Реализация препроцессора},label={extras:pp}]{listings/pp/tokenize.c}
+
+
+\chapter{Грамматический разбор}
+\section*{Абстрактное синтаксическое дерево}
+\lstinputlisting[language={c},caption={C AST},label={extras:c_ast}]{listings/parsing/ast.c}
+
+\section*{Функции разбора выражений}
+\lstinputlisting[language={c},caption={Функции разбора выражений},label={extras:parse_expr}]{listings/parsing/expr.c}
+
+\section*{Функции разбора определений}
+\lstinputlisting[language={c},caption={Функции разбора определений},label={extras:parse_decl}]{listings/parsing/decl.c}
+
+\section*{Функции разбора утдверждений}
+\lstinputlisting[language={c},caption={Функции разбора утдверждений},label={extras:parse_stmt}]{listings/parsing/stmt.c}
+
+\section*{Функция разбора единицы трансляции}
+\lstinputlisting[language={c},caption={Функция разбора единицы трансляции},label={extras:parse_tr_unit}]{listings/parsing/tr_unit.c}
+
+
+\chapter{Трансляция Ast}
+\section*{Пример функций трансляции AST обратно в Си}
+\lstinputlisting[language={c},caption={Функции трансляции AST в Си},label={extras:unparse}]{listings/translation/unparse/unparse.c}
+
+\section*{Пример функций трансляции AST в graphviz}
+% label always after caption
+\lstinputlisting[language={c},caption={Функции трансляции в graphviz},label={extras:compile-graphviz}]{listings/translation/ast_vis/graphviz.c}
+
+
+
+% \chapter{Что-то очень важное}
+% \label{app:details}
+
+
+
+% \section{секция}
+% \[
+%     \sin(x) \approx x
+% \]
+
+% \begin{lstlisting}
+% def EvaluateDiplomas():
+%     for each student in Masters:
+%         student.Mark := 5
+%     for each student in Engineers:
+%         if Good(student):
+%             student.Mark := 5
+%         else:
+%             student.Mark := 4
+% \end{lstlisting}
+% ,caption={Алгоритм оценки дипломных работ}
+% \section{другая секция}
+
+% \begin{lstlisting}[language=C, caption={Листинг из внешнего файла}]
+%     int x = 4;
+% \end{lstlisting}
+% % \begin{SmallListing}
+% %     int x = 3;
+% % \end{SmallListing}
+
+% \begin{ListingEnv}[t]
+%     % далее метка для ссылки:
+%     % окружение учитывает пробелы и табляции и приеняет их в сответсвии с настройкми
+%     % \begin{lstlisting}[language={[ISO]C++}]
+%     \begin{lstlisting}[language=C]
+% 	#include <iostream>
+% 	using namespace std;
+
+% 	int main() //кириллица в комментариях при xelatex и lualatex имеет проблемы с пробелами
+% 	{
+% 		cout << "Hello, world" << endl; //latin letters in commentaries
+% 		system("pause");
+% 		return 0;
+% 	}
+%     \end{lstlisting}
+%     \caption{Программа “Hello, world” на \protect\cpp}
+%     \label{list:hwbeauty}
+% \end{ListingEnv}%
+
+% \chapter{Далее}
+
+% \lstinputlisting[language={C},caption={Листинг из внешнего файла},label={list:external1}]{listings/intro/arena.c}
+
+% \chapter{Основные публикации автора по теме диссертации}
+% \label{app:publications}
+
+% % first publation
+% \includepdf[
+%     pages={-},  % include all pages
+%     pagecommand={},  % to include global numbering
+%     scale=0.85,  % to leave space for the global page numbers
+%     frame,  % adds a frame, optional
+% ]{biblio/MyPublications/2019_PRL_acoustic.pdf}
+

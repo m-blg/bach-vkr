@@ -1,0 +1,537 @@
+\chapter{ДЕТАЛИ РЕАЛИЗАЦИИ}
+\label{ch:ch2}
+
+\section{Практическая часть: введение}
+
+Разработана библиотека ec.so, в которой реализованны возможности source-to-source компилятора языка Си.
+К этой библиотеке написана небольшая утилита \verb|ecc|, реализующая для нее cli интерфейс.
+Данный функционал предоставлен пользователю для решения задачь метапрограммирования: предобработки, умной компиляции, и др.
+
+Поверх стандартного фунционала разбора языка Си в библиотеку добавлено синтаксическое расширение языка: Extended C
+Которое может быть использованно пользователем для разметки программного кода с целью последующей его обработки, что продемострированно далее 
+% TODO add ref
+
+Библиотека реализованна на языке C23, используется некоторые улучшения, добавленные в новом стандарте.
+
+Используются:
+\begin{enumerate}
+  \item ключевое слово \textbf{auto} для автоматического вывода типов
+  \item взятие адреса у литерала, например \verb|&(int) {3}|
+  \item gcc выражения-утдверждения (statement expressions) вида \verb|({x = 3; x;})|
+  \item gcc \verb|,##| оператор в макросах
+\end{enumerate}
+
+
+\subsection{Основные примитивы}
+Для написания основной библиотки используюется дочерняя библиотека[\ref{extras:c-core}] с основными примитивами: 
+строковыми, ввода-вывода, аллокации памяти и др.
+
+Данная библиотека реализована в виде единичных самодостаточных заголовочных файлов, 
+которые могут быть в зависимости от флага препроцессора либо заголовочными файлами либо файлами имплементации, 
+по принципу stb библиотек\cite{stb_libs}.
+
+% \subsubsection{Макросы}
+
+% Для определений структур и энумераций используются следующие макросы:
+
+% \beginminteddef{c}
+% #define struct_decl(name) \
+% typedef struct name name; \
+% struct name; \
+
+% #define enum_decl(name) \
+% typedef enum name name; \
+% enum name; \
+
+% #define struct_def(name, fields) \
+% typedef struct name name; \
+% struct name fields; \
+
+% #define enum_def(name, ...) \
+% typedef enum name name; \
+% enum name {__VA_ARGS__}; \
+% \end{minted} 
+
+
+% \subsubsection{Обработка ошибок}
+
+% Ошибки кодируются как enum, например:
+
+% \begin{listing}
+% \caption{Ошибки Аллокатора}
+% \beginminteddef{c}
+% enum_def(AllocatorError,
+%     ALLOCATOR_ERROR_OK,
+%     ALLOCATOR_ERROR_MEM_ALLOC,
+%     ALLOCATOR_ERROR_COUNT
+% )
+% #define ALLOCATOR_ERROR(ERR) ((AllocatorError)ALLOCATOR_ERROR_##ERR)
+% \end{minted}
+% \end{listing}
+
+% Значение OK кодируется как 0, остальные значения кодируются положительными числами.
+
+% Для обработки ошибок используются следующие макросы:
+% % \begin{minted}[linenos, frame=single]{c}
+% \beginminteddef{c}
+% #define IS_OK(e) ({ \
+%     auto _r = (e); \
+%     *(int *)&(_r) == 0; \
+%     })
+% #define IS_ERR(e) ({ \
+%     auto _r = (e); \
+%     *(int *)&(_r) != 0; \
+%     })
+% #define TRY(expr) { \
+%     auto _e_ = (expr); \
+%     if (IS_ERR(_e_)) { \
+%         return _e_; \
+%     } \
+%   }
+% #define ASSERT(expr) \
+%     if (!(expr)) { \
+%         fprintf(stderr, "ASSERT at %s:%d:\n", __FILE__, __LINE__); \
+%         panic(); \
+%     } 
+% #define ASSERTM(expr, msg) { \
+%     if (!(expr)) { \
+%         fprintf(stderr, "ASSERTM: %*s\nat %s:%d:\n", (int)(sizeof(msg)-1), msg, __FILE__, __LINE__); \
+%         panic(); \
+%     } \
+% }
+% #define ASSERT_OK(expr) { \
+%     auto _e_ = (expr); \
+%     if (IS_ERR(_e_)) { \
+%         fprintf(stderr, "ASSERT_OK at %s:%d:\n", __FILE__, __LINE__); \
+%         panic(); \
+%     } \
+% }
+% \end{minted} 
+
+% \verb|IS_OK|, \verb|IS_ERR| - проверяют была ли ошибка
+
+% \verb|TRY| - если была ошибка верни ошибку из текущей функции 
+
+% \verb|ASSERT_OK| - если была ошибка, критическое завершение программы 
+
+% \subsubsection{Контекст}
+% Используется глобальный контекст, уникальный для каждого потока:
+
+% \beginminteddef{c}
+% __thread struct {
+%     Allocator global_alloc;
+
+%     Arena imm_str_arena;
+%     Allocator imm_str_alloc;
+%     slice_T(u8_t) dump_buffer;
+
+%     void (*raise)(Error);
+
+%     StreamWriter stdout_sw;
+%     StreamWriter stderr_sw;
+% } g_ctx;
+% \end{minted} 
+
+% \subsubsection{Аллокатор}
+% Используется интерфейс абстрактного аллокатора:
+
+% \beginminteddef{c}
+% AllocatorError
+% allocator_alloc(Allocator* self, usize_t size, usize_t alignment, void **out_ptr);
+% AllocatorError
+% allocator_resize(Allocator* self, usize_t size, usize_t alignment, void **in_out_ptr);
+% allocator_free(Allocator* self, void **ptr);
+
+% AllocatorError
+% allocator_alloc_z(Allocator* self, usize_t size, usize_t alignment, void **out_ptr);
+% \end{minted} 
+
+% Примерами такого аллокатора служат глобальный glibc аллокатор и арена алокатор 
+
+% \subsubsection{Арена Памяти}
+% Для оптимизации и удобства работы с памятью используется структура арены памяти.
+
+% \beginminteddef{c}
+% struct_def(ArenaChunk, {
+%     u8_t *cursor;
+%     usize_t data_size;
+%     u8_t data[];
+% })
+
+% struct_def(Arena, {
+%     list_T(ArenaChunk) chunks;
+%     usize_t default_chunk_data_size;
+% })
+% \end{minted} 
+
+
+% \subsubsection{Строки}
+% Строки и строковые "срезы" (позразумевается, что \textit{String} владеет паматью, т.к. хранит абстрактный аллокатор, 
+%  а \textit{str\_t} нет)
+
+% \beginminteddef{c}
+% struct_def(String, {
+%     uchar_t *ptr;
+%     usize_t byte_cap;
+%     usize_t byte_len; // in bytes
+%     Allocator allocator;
+% })
+
+% struct_def(str_t, {
+%     uchar_t *ptr;
+%     usize_t byte_len; // in bytes
+% })
+
+% typedef uint32_t rune_t;
+% \end{minted}
+
+% Подразумевается, что строки используют UTF-8 кодировку.
+
+% Тип \verb|rune_t| - unicode code point, число кодирующее символ в стандарте Юникод.
+
+% Интерфейс итераторов считывания/записи юникод символов:
+% \beginminteddef{c}
+% UTF8_Error
+% str_next_rune(str_t self, rune_t *out_rune, str_t *out_self);
+
+% /// @param[in, out] out_str should be preinit, len 4 guaranties success
+% UTF8_Error
+% str_encode_next_rune(str_t self, rune_t rune, str_t *out_self);
+% \end{minted}
+
+
+% \subsubsection{Потоки ввода вывода}
+
+% Интерфейс абстрактного потока вывода:
+
+% \beginminteddef{c}
+% enum_def(IOError, 
+%     IO_ERROR_OK,
+%     IO_ERROR_WRITE,
+% )
+% #define IO_ERROR(ERR) ((IOError)IO_ERROR_##ERR)
+
+% typedef IOError (StreamWriter_WriteFn)(void *, usize_t, uint8_t[]);
+% typedef IOError (StreamWriter_FlushFn)(void *);
+
+% struct_def(StreamWriter_VTable, {
+%     StreamWriter_WriteFn *write;
+%     StreamWriter_FlushFn *flush;
+% })
+% struct_def(StreamWriter, {
+%     StreamWriter_VTable _vtable;
+
+%     void *data;
+% })
+% \end{minted}
+
+% Тип \verb|OutputFileStream| - поток вывода в файл, реализующий привиденный ранее интерфейс.
+
+% \beginminteddef{c}
+% struct_def(OutputFileStream, {
+%     slice_T(u8_t) buffer;
+%     void *b_cursor;
+%     void *e_cursor;
+%     FILE *file;
+% })
+
+% AllocatorError
+% output_file_stream_new_in(FILE *ofile, usize_t buffer_size, Allocator alloc[non_null], OutputFileStream *out_self);
+% IOError
+% output_file_stream_write(OutputFileStream self[non_null], usize_t data_size, u8_t data[data_size]);
+% IOError
+% output_file_stream_flush(OutputFileStream self[non_null]);
+% StreamWriter
+% output_file_stream_stream_writer(OutputFileStream self[non_null]);
+% \end{minted}
+
+% Строки тоже реализуют этот интерфейс(приведено с имплементацией).
+
+% \beginminteddef{c}
+% IOError
+% output_string_stream_write(String self[non_null], usize_t data_size, u8_t data[data_size]);
+% IOError
+% output_string_stream_flush(String self[non_null]);
+% StreamWriter
+% string_stream_writer(String self[non_null]);
+
+% IOError
+% output_string_stream_write(String self[non_null], usize_t data_size, u8_t data[data_size]) {
+%     ASSERT_OK(string_reserve_cap(self, data_size));
+%     ASSERT_OK(string_append_str(self, (str_t) {.ptr = data, .byte_len = data_size}));
+%     return IO_ERROR(OK);
+% }
+% IOError
+% output_string_stream_flush(String self[non_null]) {
+%     return IO_ERROR(OK);
+% }
+% StreamWriter
+% string_stream_writer(String self[non_null]) {
+%     return (StreamWriter) {
+%         ._vtable = (StreamWriter_VTable) {
+%             .write = (StreamWriter_WriteFn *)output_string_stream_write,
+%             .flush = (StreamWriter_FlushFn *)output_string_stream_flush,
+%         },
+%         .data = (void *)self,
+%     };
+% }
+% \end{minted}
+
+
+% Используются следующие коды, для изменения цвета текста, при вывод в терминал.
+% \beginminteddef{c}
+% #define KNRM  "\x1B[0m"
+% #define KRED  "\x1B[31m"
+% #define KGRN  "\x1B[32m"
+% #define KYEL  "\x1B[33m"
+% #define KBLU  "\x1B[34m"
+% #define KMAG  "\x1B[35m"
+% #define KCYN  "\x1B[36m"
+% #define KWHT  "\x1B[37m"
+% \end{minted}
+
+% \subsubsection{Форматирование строк}
+
+% Для форматирования строк используется тип \verb|StringFormatter|, содержащий текущее состояние форматирования и настройки форматирования:
+% строку для индентации(например \verb|"    "|), выходной поток, куда форматтер выводит результат.
+
+% \beginminteddef{c}
+% enum_def(FmtError,
+%     FMT_ERROR_OK,
+%     FMT_ERROR_ERROR,
+% )
+
+% struct_def(StringFormatter, {
+%     usize_t pad_level;
+%     str_t pad_string;
+
+%     StreamWriter target;
+
+%     bool is_line_padded;
+% })
+% \end{minted}
+
+% Основыные методы типа \verb|StringFormatter|:
+% \beginminteddef{c}
+% FmtError
+% string_formatter_write(StringFormatter *fmt, const str_t s);
+% FmtError
+% string_formatter_writeln(StringFormatter *fmt, const str_t s);
+% FmtError
+% string_formatter_write_fmt(StringFormatter *fmt, str_t fmt_str, ...);
+% \end{minted}
+
+% Выше \verb|write_fmt| реализует функционал схожий с функций \verb|glibc| \verb|printf|, 
+% добавлена поддержка строк типа \verb|str_t| и объектов реализующих интерфейс \verb|Formattable|.
+
+% Интерфейс \verb|Formattable|:
+% \beginminteddef{c}
+% FmtError 
+% formattable_fmt(Formattable *self, StringFormatter *fmt);
+% \end{minted}
+
+
+% Макросы для вывода:
+% \beginminteddef{c}
+% #define dbgp(___prefix, val, args...) { \
+%     struct dbgp_args\
+%     {\
+%         typeof(val) _val;\
+%         void *data;\
+%     };\
+%     auto _args = ((struct dbgp_args) { val, args});\
+%     auto fmt = string_formatter_default(&g_ctx.stdout_sw); \
+%     ASSERT_OK(___prefix##_dbg_fmt(_args._val, &fmt, _args.data));  \
+%     ASSERT_OK(string_formatter_write(&fmt, S("\n")));      \
+%     ASSERT_OK(stream_writer_flush(&fmt.target)); \
+% } \
+
+% #define print_pref(___prefix, val) { \
+%     auto fmt = string_formatter_default(&g_ctx.stdout_sw); \
+%     ASSERT_OK(___prefix##_fmt((val), &fmt, nullptr)); \
+%     ASSERT_OK(stream_writer_flush(&fmt.target)); \
+% } \
+
+% #define println_pref(___prefix, val) { \
+%     auto fmt = string_formatter_default(&g_ctx.stdout_sw); \
+%     ASSERT_OK(___prefix##_fmt((val), &fmt, nullptr)); \
+%     ASSERT_OK(string_formatter_write(&fmt, S("\n"))); \
+%     ASSERT_OK(stream_writer_flush(&fmt.target)); \
+% }
+% \end{minted}
+
+% Макросы для форматированного вывода:
+% \beginminteddef{c}
+% #define print_fmt(fmt_str, args...) { \
+%     auto fmt = string_formatter_default(&g_ctx.stdout_sw); \
+%     ASSERT_OK(string_formatter_write_fmt(&fmt, fmt_str, ##args)); \
+%     ASSERT_OK(stream_writer_flush(&fmt.target)); \
+% }                                                                     
+% #define println_fmt(fmt_str, args...) { \
+%     auto fmt = string_formatter_default(&g_ctx.stdout_sw); \
+%     ASSERT_OK(string_formatter_write_fmt(&fmt, fmt_str, ##args)); \
+%     ASSERT_OK(string_formatter_write(&fmt, S("\n"))); \
+%     ASSERT_OK(stream_writer_flush(&fmt.target)); \
+% }                                                                     
+
+% #define eprint_fmt(fmt_str, args...) { \
+%     auto fmt = string_formatter_default(&g_ctx.stderr_sw); \
+%     ASSERT_OK(string_formatter_write_fmt(&fmt, fmt_str, ##args)); \
+%     ASSERT_OK(stream_writer_flush(&fmt.target)); \
+% }                                                                     
+% #define eprintln_fmt(fmt_str, args...) { \
+%     auto fmt = string_formatter_default(&g_ctx.stderr_sw); \
+%     ASSERT_OK(string_formatter_write_fmt(&fmt, fmt_str, ##args)); \
+%     ASSERT_OK(string_formatter_write(&fmt, S("\n"))); \
+%     ASSERT_OK(stream_writer_flush(&fmt.target)); \
+% }                                                                     
+% \end{minted}
+
+% Реализацию можно посмотреть в приложении[\ref{extras:fmt_impl}]
+
+% \subsubsection{Динамическая таблица символов}
+
+% Динамическая(runtime) таблица символов используется для параметризации некоторых контейнеров по типу.
+
+% \beginminteddef{c}
+% struct_def(TypeInfo_VTable, {
+%     FmtFn *fmt;
+%     FmtFn *dbg_fmt;
+
+%     EqFn *eq;
+%     SetFn *set;
+%     HashFn *hash;
+% })
+% struct_def(TypeInfo, {
+%     usize_t size;
+%     usize_t align;
+%     str_t name;
+
+%     TypeInfo_VTable _vtable;
+% })
+
+% #define typeid_of(T) TYPE_ID_##T
+
+% #ifndef TYPE_LIST
+% #define TYPE_LIST \
+%     TYPE_LIST_ENTRY(int), \
+%     TYPE_LIST_ENTRY(usize_t), \
+%     TYPE_LIST_ENTRY(str_t), \
+%     TYPE_LIST_ENTRY(ArenaChunk), \
+%     TYPE_LIST_ENTRY(darr_t)
+
+% #endif // TYPE_LIST
+
+% typedef enum TypeId TypeId;
+% enum TypeId {
+% #define TYPE_LIST_ENTRY(T) typeid_of(T)
+%     TYPE_LIST
+% #undef TYPE_LIST_ENTRY
+% };
+% \end{minted}
+
+% \subsubsection{Статический и динамический массивы}
+
+% Тип статического массива или "среза памяти":
+
+% \beginminteddef{c}
+% struct_def(SliceVES, { 
+%     void *ptr;             
+%     usize_t len;        
+
+%     TypeId el_tid;
+%     usize_t el_size;
+%     usize_t el_align;
+% })
+
+% typedef SliceVES slice_t;
+% #define slice_T(T) slice_t
+% \end{minted}
+
+% Подразумевается, что срез не владеет памятью.
+
+% Тип динамического массива:
+
+% \beginminteddef{c}
+% struct_def(DArrVES, {        
+%     slice_t data;
+%     usize_t len;        
+%     Allocator allocator;
+% })
+% \end{minted}
+
+% Принимает произвольный аллокатор как параметр.
+
+% \subsubsection{Хеш-таблицы}
+% \label{prim:hashmap}
+
+% Реализацию приведенна в проекте[\ref{extras:ecc}]
+
+% \beginminteddef{c}
+% struct_def(HashMap, {
+%     SliceVES_T(HashMap_Bucket) buckets;
+%     SliceVES keys;
+%     SliceVES values;
+
+%     usize_t count;
+    
+%     HashFn *key_hash;
+%     EqFn *key_eq;
+%     SetFn *key_set;
+
+%     SetFn *value_set;
+%     TypeId key_tid;
+%     TypeId value_tid;
+
+%     Allocator alloc;
+% })
+
+% typedef HashMap * hashmap_t;
+
+% // hashmap_T(str_t, any_t)
+% #define hashmap_T(key, val) hashmap_t
+% \end{minted}
+
+% \newpage
+% \subsection{Интерфейс работы с узлом трансляции}
+
+% В библиотеке есть высокоуровневая абстракция единицы трансляции, на которой реализованны функции преобразований(прохов/passes).
+
+
+% \beginminteddef{c}
+% struct_def(C_TranslationUnitData, {
+%     str_t main_file;
+%     hashmap_T(str_t, TU_FileData) file_data_table;
+%     // lexing
+%     darr_T(C_Token) tokens;
+%     // parsing
+%     C_Ast_TranslationUnit *tr_unit;
+
+%     // analysis
+%     C_SymbolTable symbol_table;
+%     // hashmap_T(str_t, void) topsort_start_symbols;
+% #ifdef EXTENDED_C
+%     C_SymbolTable proc_macro_table;
+%     void *proc_macro_lib; // handle from dlopen call
+% #endif // EXTENDED_C
+
+%     // mem
+%     Arena string_arena;
+%     Arena token_arena;
+%     Arena ast_arena;
+% })
+
+% void
+% c_translation_unit_init(C_TranslationUnitData *self, str_t main_file_path);
+% void
+% c_translation_unit_deinit(C_TranslationUnitData *self);
+% bool
+% c_translation_unit_lex(C_TranslationUnitData *self);
+% bool
+% c_translation_unit_parse(C_TranslationUnitData *self);
+% void
+% ec_translation_unit_ast_unparse(C_TranslationUnitData *self, StreamWriter *dst_sw);
+% void
+% ec_translation_unit_ast_compile_graphvis(C_TranslationUnitData *self, StreamWriter *dst_sw);
+% \end{minted}
+

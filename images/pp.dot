@@ -1,0 +1,14 @@
+digraph G {
+    node [shape=square]
+    _0 [label="{"];
+    _i [label="#include", shape=ellipse];
+    subgraph cluster_0 {
+        _1 [label="x"];
+        _2 [label="+"];
+        _3 [label="3"];
+        _i->_1->_2->_3;
+    }
+    _4 [label="}"];
+
+    _0->_i->_4;
+}

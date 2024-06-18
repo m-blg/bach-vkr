@@ -1,0 +1,10 @@
+digraph G {
+    node [shape=square]
+    _0 [label="{"];
+        _1 [label="x"];
+        _2 [label="+"];
+        _3 [label="3"];
+    _4 [label="}"];
+
+    _0->_1->_2->_3->_4;
+}

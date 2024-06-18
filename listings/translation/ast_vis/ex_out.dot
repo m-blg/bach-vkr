@@ -1,0 +1,28 @@
+digraph G {
+    _1 [label="translation unit"];
+    _2 [label="decl\nkind: type decl"];
+    _1 -> _2;
+    _3 [label="type\nkind: Struct"];
+    _2 -> _3;
+    _4 [label="ident: S"];
+    _3 -> _4;
+    _5 [label="fields:"];
+    _3 -> _5;
+     subgraph fields_5 {
+        _6 [label="decl\nkind: Variable"];
+        _5 -> _6;
+        _7 [label="type\nkind: Ident\n name: int"];
+        _6 -> _7;
+        _8 [label="ident: x"];
+        _6 -> _8;
+        
+        _9 [label="decl\nkind: Variable"];
+        _5 -> _9;
+        _10 [label="type\nkind: Pointer"];
+        _9 -> _10;
+        _11 [label="type\nkind: Ident\n name: Foo"];
+        _10 -> _11;
+        _12 [label="ident: foo"];
+        _9 -> _12;
+        
+    }}
