@@ -310,7 +310,8 @@
 
 %%% Макет страницы %%%
 % Выставляем значения полей (ГОСТ 7.0.11-2011, 5.3.7)
-\geometry{a4paper, top=2cm, bottom=2cm, left=3cm, right=1cm, nofoot, nomarginpar} %, heightrounded, showframe
+% \geometry{a4paper, top=2cm, bottom=2cm, left=3cm, right=1cm, nofoot, nomarginpar} %, heightrounded, showframe
+\geometry{a4paper, top=2cm, bottom=2cm, left=3cm, right=1cm, nomarginpar} %, heightrounded, showframe
 \setlength{\topskip}{0pt}   %размер дополнительного верхнего поля
 \setlength{\footskip}{12.3pt} % снимет warning, согласно https://tex.stackexchange.com/a/334346
 
@@ -347,7 +348,7 @@
 \setrmarg{2.55em plus1fil}                             %To have the (sectional) titles in the ToC, etc., typeset ragged right with no hyphenation
 \renewcommand{\cftchapterpagefont}{\normalfont}        % нежирные номера страниц у глав в оглавлении
 \renewcommand{\cftchapterleader}{\cftdotfill{\cftchapterdotsep}}% нежирные точки до номеров страниц у глав в оглавлении
-%\renewcommand{\cftchapterfont}{}                       % нежирные названия глав в оглавлении
+\renewcommand{\cftchapterfont}{\normalfont}                       % нежирные названия глав в оглавлении
 
 \ifnumgreater{\value{headingdelim}}{0}{%
 	\renewcommand\cftchapteraftersnum{.\space}       % добавляет точку с пробелом после номера раздела в оглавлении

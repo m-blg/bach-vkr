@@ -1,0 +1,311 @@
+
+\clearpage
+\section{Основные примитивы}
+\label{primitives}
+
+Библиотека реализованна на языке C23, используется некоторые улучшения, добавленные в новом стандарте.
+
+Используются:
+\begin{enumerate}
+  \item ключевое слово \textbf{auto} для автоматического вывода типов
+  \item взятие адреса у литерала, например \verb|&(int) {3}|
+  \item gcc выражения-утверждения (statement expressions) вида \verb|({x = 3; x;})|
+  \item gcc \verb|,##| оператор в макросах
+\end{enumerate}
+
+Для написания основной библиотеки используются дочерняя библиотека[\ref{extras:c-core}] с основными примитивами: 
+строковыми, ввода-вывода, аллокации памяти и др.
+
+Данная библиотека реализована в виде единичных самодостаточных заголовочных файлов, 
+которые могут быть в зависимости от флага препроцессора либо заголовочными файлами либо файлами имплементации, 
+по принципу stb библиотек\cite{stb_libs}.
+
+Далее рассматриваю каждый примитив в отдельности:
+\begin{itemize}
+\item Макросы определения составных типов
+
+Для определений структур и энумераций используются следующие макросы препроцессора Си[\ref{primitives:def-macros}]:
+\begin{lstlisting}[language=c, caption={Макросы определения составных типов}, label={primitives:def-macros}]
+#define struct_decl(name) \
+typedef struct name name; \
+struct name; \
+
+#define enum_decl(name) \
+typedef enum name name; \
+enum name; \
+
+#define struct_def(name, fields) \
+typedef struct name name; \
+struct name fields; \
+
+#define enum_def(name, ...) \
+typedef enum name name; \
+enum name {__VA_ARGS__}; \
+\end{lstlisting} 
+
+Данные макросы позволяют не использовать соответствующее ключевое слово перед именем типа, 
+например \verb|A| вместо \verb|struct A|.
+
+\item Обработка ошибок
+
+
+Ошибки кодируются как enum, например:
+
+\begin{lstlisting}[language=c, caption={Ошибки Аллокатора}, label={primitives:error-enum-ex}]
+enum_def(AllocatorError,
+    ALLOCATOR_ERROR_OK,
+    ALLOCATOR_ERROR_MEM_ALLOC,
+    ALLOCATOR_ERROR_COUNT
+)
+#define ALLOCATOR_ERROR(ERR) ((AllocatorError)ALLOCATOR_ERROR_##ERR)
+\end{lstlisting}
+
+Значение OK кодируется как 0, остальные значения кодируются положительными числами.
+
+Для обработки ошибок используются следующие макросы:
+% \begin{minted}[linenos, frame=single]{c}
+\begin{lstlisting}[language=c, caption={Макросы обработки ошибок}, label={primitives:error-macros}]
+#define IS_OK(expr) ...
+#define IS_ERR(expr) ...
+#define TRY(expr) ...
+#define ASSERT(expr) ...
+#define ASSERTM(expr, msg) ...
+#define ASSERT_OK(expr) ...
+#define DBG_ASSERT(expr) ...
+\end{lstlisting}
+
+Где
+\begin{itemize}
+    \item \verb|IS_OK| - возвращает \verb|true|, если не было ошибки в данном выражении.
+
+    \item \verb|IS_ERR| - возвращает \verb|true|, если была ошибка в данном выражении.
+
+    \item \verb|TRY| - если в данном выражение была ошибка, то возвращает ошибку из текущей функции ключевым словом \verb|return|.
+
+    \item \verb|ASSERT| - если выражение ложно, то критически завершает программу, используя вызов функции \verb|panic|.
+    Данный примитив используется для проверки инвариантов во время работы программы и не убирается в \verb|release| режиме сборки.
+
+    \item \verb|ASSERTM| - ведет себя также как \verb|ASSERT|, но позволяет дополнительно передать сообщение об ошибке.
+
+    \item \verb|ASSERT_OK| - идентичен композиции \verb|ASSERT(IS_OK(expr))|.
+    Является аналогом метода \verb|unwrap| в языке Rust.
+
+    \item \verb|DBG_ASSERT| - аналог \verb|ASSERT|, убирающийся в \verb|release| режиме сборки.
+\end{itemize}
+
+\item Контекст
+
+Используется глобальный контекст, уникальный для каждого потока:
+
+\begin{lstlisting}[language=c, caption={Структура глобального контекста}, label={primitives:g_ctx-struct}]
+__thread struct {
+    Allocator global_alloc;
+
+    StreamWriter stdout_sw;
+    StreamWriter stderr_sw;
+} g_ctx;
+\end{lstlisting} 
+
+Данный контекст содержит глобальный аллокатор[\ref{primitives:allocator}], и потоки вывода для \verb|stdout|, \verb|stderr|.
+
+\item\label{primitives:allocator} Аллокатор
+
+Используется интерфейс абстрактного аллокатора:
+
+\begin{lstlisting}[language=c, caption={Макросы обработки ошибок}, label={primitives:error-macros}]
+AllocatorError
+allocator_alloc(Allocator* self, usize_t size, usize_t alignment, void **out_ptr);
+AllocatorError
+allocator_resize(Allocator* self, usize_t size, usize_t alignment, void **in_out_ptr);
+allocator_free(Allocator* self, void **ptr);
+
+AllocatorError
+allocator_alloc_z(Allocator* self, usize_t size, usize_t alignment, void **out_ptr);
+\end{lstlisting} 
+
+Где данные функции работают аналогично функциям \verb|glibc| \verb|malloc|, \verb|resize|, \verb|free|, \verb|calloc| соответственно.
+Однако они также поддерживаю произвольное выравнивание типа.
+
+Примерами такого аллокатора служат глобальный glibc аллокатор и арена аллокатор[\ref{primitives:arena}].
+
+\item\label{primitives:arena} Арена Памяти
+
+Для оптимизации и удобства работы с памятью используется тип арены памяти \verb|Arena|, реализующая интерфейс абстрактного аллокатора.
+Арена заранее выделяет большой кусок(chunk) памяти и при запросе на выделение памяти(функцией \verb|arena_alloc|) дает указатель внутри него. Если текущего куска недостаточно выделяется еще один и т.д.
+Все куски хранятся как связанный список.
+
+При запросе на освобождение(функцией \verb|arena_free|) памяти ничего не происходит. Арена очищает всю память разом при вызове метода \verb|arena_reset|.
+
+Такой интерфейс позволяет удобно выделять память под задачи, имеющие определенное, конечное время жизни, как например этапы компиляции.
+
+\item Строки
+
+Привожу определения строк и строковых "срезов":
+
+\begin{lstlisting}[language=c, caption={Строки и строковые срезы}, label={primitives:string-struct}]
+struct_def(String, {
+    uchar_t *ptr;
+    usize_t byte_cap;
+    usize_t byte_len; // in bytes
+    Allocator allocator;
+})
+
+struct_def(str_t, {
+    uchar_t *ptr;
+    usize_t byte_len; // in bytes
+})
+
+typedef uint32_t rune_t;
+\end{lstlisting}
+
+Подразумевается, что \verb|String| владеет памятью, т.к. хранит абстрактный аллокатор, а \verb|str_t| нет.
+Тип \verb|String| ведет себя в точности как динамический массив символов.
+
+Подразумевается, что строки используют UTF-8 кодировку.
+
+Тип \verb|rune_t| - unicode code point, число кодирующее символ в стандарте Юникод.
+
+Строки - основной примитив использованный в данной работе. Они являются альтернативой Си строкам, которые не имеют поля длины и являются ноль-терминированными.
+Для конвертации строковых литералов Си к типу \verb|str_t| используется макрос препроцессора Си: \verb|S(str)|.
+
+При лексическом разборе[\ref{pass:lexing}] используется интерфейс итераторов считывания/записи юникод символов:
+\begin{lstlisting}[language=c, caption={Функиции итерации считывания/записи строк}, label={primitives:str-iter-api}]
+UTF8_Error
+str_next_rune(str_t self, rune_t *out_rune, str_t *out_self);
+UTF8_Error
+str_encode_next_rune(str_t self, rune_t rune, str_t *out_self);
+\end{lstlisting}
+
+
+\item Потоки вывода
+
+Далее привожу интерфейс абстрактного потока вывода, использующийся для:
+
+\begin{lstlisting}[language=c, caption={Интерфейс абстрактного потока вывода}, label={primitives:io-api}]
+typedef IOError (StreamWriter_WriteFn)(void *, usize_t, uint8_t[]);
+typedef IOError (StreamWriter_FlushFn)(void *);
+\end{lstlisting}
+
+
+Тип \verb|OutputFileStream| - поток вывода в файл, реализующий приведенный ранее интерфейс.
+Строки тоже реализуют этот интерфейс(приведено с имплементацией).
+
+\begin{lstlisting}[language=c, caption={Реализация интерфейса потока вывода другими типами}]
+StreamWriter
+output_file_stream_stream_writer(OutputFileStream *self);
+StreamWriter
+string_stream_writer(String *self);
+\end{lstlisting}
+
+\item Форматирование строк
+
+Для форматирования строк используется тип \verb|StringFormatter|, содержащий текущее состояние форматирования и настройки форматирования:
+строку для индентации(например \verb|"    "|), выходной поток, куда форматтер выводит результат.
+
+Основыные методы типа \verb|StringFormatter|:
+\begin{lstlisting}[language=c, caption={Интерфейс объекта форматирования строк}, label={primitives:string-formatter-api}]
+FmtError
+string_formatter_write(StringFormatter *fmt, const str_t s);
+FmtError
+string_formatter_writeln(StringFormatter *fmt, const str_t s);
+FmtError
+string_formatter_write_fmt(StringFormatter *fmt, str_t fmt_str, ...);
+\end{lstlisting}
+
+Выше \verb|write_fmt| реализует функционал схожий с функцией \verb|glibc| \verb|printf|, 
+добавлена поддержка строк типа \verb|str_t| и объектов реализующих интерфейс \verb|Formattable|[\ref{primitives:formattable-api}].
+
+Интерфейс абстрактного форматируемого объекта \verb|Formattable|:
+\begin{lstlisting}[language=c, caption={Интерфейс абстрактного форматируемого объекта}, label={primitives:formattables-api}]
+FmtError 
+formattable_fmt(Formattable *self, StringFormatter *fmt);
+\end{lstlisting}
+
+
+Используются следующие макросы для вывода в консоль:
+\begin{lstlisting}[language=c, caption={Макросы для вывода в консоль}, label={primitives:print-macros}]
+#define dbgp(___prefix, val, args...) ...
+#define print_pref(___prefix, val) ...
+#define println_pref(___prefix, val) ...
+
+#define print_fmt(fmt_str, args...) ...                                 
+#define println_fmt(fmt_str, args...) ...                               
+
+#define eprint_fmt(fmt_str, args...) ...                                
+#define eprintln_fmt(fmt_str, args...) ...                              
+\end{lstlisting}
+
+Где
+\begin{itemize}
+    \item \verb|dbgp| - макрос отладочного вывода. Вызов вида \verb|dbgp(foo, val, args...)| вызовет функцию отладочного форматирования \verb|foo_dbg_fmt|(ожидается, что она существует).
+    \item \verb|print_pref| - макрос вывода в стандартный поток вывода по префиксу функции. Вызов вида \verb|print(foo, val)| вызовет функцию форматирования объекта \verb|foo_fmt|(ожидается, что она существует).
+    \item \verb|println_pref| - аналогичен \verb|print_pref|, но пишет символ переноса строки в конце.
+
+    \item \verb|print_fmt| - работает аналогично функции \verb|glibc| \verb|printf|, но вместо строк Си использует строки типа \verb|str_t|, также поддерживает абстрактные форматируемые объекты.
+    \item \verb|println_fmt| - аналогичен \verb|print_fmt|, но пишет символ переноса строки в конце.
+    
+    \item \verb|eprint_fmt| - аналогичен \verb|print_fmt|, но пишет в стандартный поток ошибок.
+    \item \verb|eprintln_fmt| - аналогичен \verb|println_fmt|, но пишет в стандартный поток ошибок.
+\end{itemize}
+
+\item Структуры данных
+
+Далее в работе активно используются следующие структуры данных:
+\begin{itemize}
+    \item \verb|slice_t| - статический массив, выполнен как указатель и кол-во элементов.
+    \item \verb|darr_t| - динамический массив, владеет паматью и хранит абстрактный аллокатор.
+    \item \verb|hashmap_t| - хеш-таблица.
+    \item \verb|hashset_t| - хеш-множество.
+\end{itemize}
+
+
+Для каждого из них существует аналогичный макрос с окончанием \verb|_T|, позволяющий указывать имена типов, находящихся в контейнере.
+Например \verb|darr_T(int)| - динамический массив целых чисел, \verb|hashmap_T(str_t, Foo)| - хеш-таблица с ключами типа \verb|str_t| и со значениями типа \verb|Foo|.
+
+%
+
+% \newpage
+% \subsection{Интерфейс работы с узлом трансляции}
+
+% В библиотеке есть высокоуровневая абстракция единицы трансляции, на которой реализованны функции преобразований(прохов/passes).
+
+
+% \beginminteddef{c}
+% struct_def(C_TranslationUnitData, {
+%     str_t main_file;
+%     hashmap_T(str_t, TU_FileData) file_data_table;
+%     // lexing
+%     darr_T(C_Token) tokens;
+%     // parsing
+%     C_Ast_TranslationUnit *tr_unit;
+
+%     // analysis
+%     C_SymbolTable symbol_table;
+%     // hashmap_T(str_t, void) topsort_start_symbols;
+% #ifdef EXTENDED_C
+%     C_SymbolTable proc_macro_table;
+%     void *proc_macro_lib; // handle from dlopen call
+% #endif // EXTENDED_C
+
+%     // mem
+%     Arena string_arena;
+%     Arena token_arena;
+%     Arena ast_arena;
+% })
+
+% void
+% c_translation_unit_init(C_TranslationUnitData *self, str_t main_file_path);
+% void
+% c_translation_unit_deinit(C_TranslationUnitData *self);
+% bool
+% c_translation_unit_lex(C_TranslationUnitData *self);
+% bool
+% c_translation_unit_parse(C_TranslationUnitData *self);
+% void
+% ec_translation_unit_ast_unparse(C_TranslationUnitData *self, StreamWriter *dst_sw);
+% void
+% ec_translation_unit_ast_compile_graphvis(C_TranslationUnitData *self, StreamWriter *dst_sw);
+% \end{minted}
+
+% Примеры использования данного иМнтерфейса: % TODO
+\end{itemize}

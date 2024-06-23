@@ -1,0 +1,395 @@
+
+
+\clearpage
+\section{Лексический анализ}
+\label{pass:lexing}
+
+Лексический разбор выполняет преобразование из последовательности символов в последовательность токенов(лексем), в соответствии с лексической грамматикой.
+Для Си данная грамматика приведена в стандарте\cite{c99_std} (Annex A, 1. Lexical Grammar), и является LL(1) грамматикой.
+
+Выполненный токенизатор(лексер, сканнер) языка Си является LL(2) парсером, т.к. использует до двух look-ahead токенов.
+
+\subsection{Структура токена Си}
+
+Токен Си - лексема, единица лексического разбора.
+
+\begin{lstlisting}[language=c, caption={Структура токена Си}, label={lexing:c-token-struct}]
+struct_def(C_Token, {
+    C_TokenKind kind;
+    C_LexerSpan span;
+    C_TokenFlags flags;
+    union {
+        C_TokenIdent t_ident;
+        C_TokenKeyword t_keyword;
+        C_TokenPunct t_punct;
+        C_TokenComment t_comment;
+        C_TokenStringLiteral t_str_lit;
+        C_TokenCharLiteral t_char_lit;
+        C_TokenNumLiteral t_num_lit;
+        C_Token_PP_Directive t_pp_directive;
+        C_TokenHeaderName t_header_name;
+        C_TokenInclude t_include;
+        C_TokenExpand t_expand;
+    };
+})
+\end{lstlisting}
+
+Тип \verb|C_Token| является объединением конкретных типов токенов, таких как
+\begin{itemize}
+  \item \verb|C_TokenIdent| - идетификатор, например:
+  \verb|x|, \verb|y|, \verb|z|
+
+  \item \verb|C_TokenKeyword| - ключевое слово, например:
+  \verb|int|, \verb|return|, \verb|auto| \\
+  список ключевых слов приведен в приложении[\ref{extras:c_defs}]
+
+  \item \verb|C_TokenPunct| - знак препинания(пунктуатор), например:
+  \verb|;|, \verb|{|, \verb|++|
+
+  \item \verb|C_TokenComment| - комментарий, например:
+  \verb|// comment|, \verb|/* muliline comment */|
+
+  \item \verb|C_TokenStringLiteral| - строковой литерал, например: \verb|"text"|
+  \item \verb|C_TokenCharLiteral| - символьный литерал, например: \verb|'\u20ac'|
+  \item \verb|C_TokenNumLiteral| - числовой литерал, например: \verb|'0x1234abcdeful'|
+  \item \verb|C_TokenNumLiteral| - числовой литерал, например: \verb|'0x1234abcdeful'|
+
+  Последующие токены относятся к препроцессору и будут рассмотренны далее[\ref{pp}]
+  \item \verb|C_Token_PP_Directive|
+  \item \verb|C_TokenHeaderName|
+  \item \verb|C_TokenInclude|
+  \item \verb|C_TokenExpand|
+\end{itemize}
+
+В \verb|int x = 3;|: 
+\begin{itemize}
+    \item \verb|int| - ключевое слово 
+    \item \verb|x| - идетификатор 
+    \item \verb|=| и \verb|;| - знаки препинания 
+    \item \verb|3| - числовой литерал
+\end{itemize}
+
+Вид конкретного токена определяется полем \verb|kind| структуры \verb|C_Token|.
+\begin{lstlisting}[language=c, caption={Виды токенов Си}, label={lexing:kind-enum}]
+enum_def(C_TokenKind, 
+    C_TOKEN_KIND_INVALID,
+    C_TOKEN_KIND_IDENT,
+    C_TOKEN_KIND_KEYWORD,
+    C_TOKEN_KIND_STRING,
+    C_TOKEN_KIND_CHAR,
+    C_TOKEN_KIND_NUMBER,
+    C_TOKEN_KIND_PUNCT,
+    C_TOKEN_KIND_COMMENT,
+    C_TOKEN_KIND_PP_DIRECTIVE,
+    C_TOKEN_KIND_INCLUDE,
+    C_TOKEN_KIND_EXPAND,
+    C_TOKEN_KIND_NEW_LINE,
+    C_TOKEN_KIND_EOF
+)
+\end{lstlisting}
+
+
+% Также \verb|C_Token| содержит мета информацию о расположении в исходном файле.
+Поле \verb|span| - содержит информацию о расположении токена в исходном файле: начальные и конечные сдвиг в тексте, номер линии, номер столбца.
+
+Поле \verb|flags| - содержит флаги, такие как:
+\begin{itemize}
+    \item \verb|WAS_SPACE| - был ли пробел(любой символ, пустого пространства) после предыдущего токена.
+    \item \verb|WAS_NEW_LINE| - была ли новая строка после предыдущего токена.
+\end{itemize}
+
+Полный код токена приведен в приложении[\ref{extras:c_token}]
+
+% \subsection{Структура состояния разбора}
+
+Основная структура лексического анализа, содержащая состояние разбора:
+\begin{lstlisting}[language=c]
+struct_def(LexerState, { ... })
+\end{lstlisting}
+
+Она содержит следующие важные поля:
+\begin{itemize}
+  \item \verb|text| - указатель на разбираемый текст
+  \item \verb|rest| - оставшаяся подстрока в тексте
+
+  \item \verb|line|, \verb|col|, \verb|flags| - текущие строка, столбец, флаги соответственно
+  \item далее идут настройки препроцессора
+  
+  \item \verb|token_arena|, \verb|string_arena| - арены памяти для токенов и строк соответственно
+  \item \verb|string_batch| - строковый буффер для построения строк
+
+  \item далее идут изменяемые обработчики ошибок
+\end{itemize}
+
+\subsection{Функции лексического анализа}
+\label{lexing:fns}
+
+Главная функция токенизатора, где определяется вид следующей лексемы, выполнена в виде итератора.
+
+\begin{lstlisting}[language=c]
+LexingError
+lexer_next_token(LexerState *state, C_Token *out_token);
+\end{lstlisting}
+
+Ее использует функция \verb|tokenize|, собирающая все токены в массив.
+\begin{lstlisting}[language=c]
+LexingError
+tokenize(LexerState *state, darr_T(C_Token) *out_tokens);
+\end{lstlisting}
+
+Разбор выполняется с помошью двух основных функций:
+\begin{lstlisting}[language=c]
+INLINE
+rune_t
+lexer_peek_rune(LexerState *state);
+rune_t
+lexer_advance_rune(LexerState *state);
+\end{lstlisting}
+
+\verb|lexer_peek_rune| - посмотреть текущий символ \\
+\verb|lexer_advance_rune| - продвинуться вперед на один символ \\
+иногда используется \verb|lexer_peek_rune2| - посмотреть следующий за текущим символ
+
+Привожу пример функции лексического разбора:
+\begin{lstlisting}[language=c, caption={Пример функции лексического разбора}, label={lexing:fn-ex}]
+LexingError
+lex_ascii_char_set(LexerState *state, ASCII_CharSet set, uchar_t *out_char) {
+    rune_t r = lexer_peek_rune(state);
+    if (r > 256) {
+        return LEXING_ERROR(NONE);
+    }
+    uchar_t c = (uchar_t)r;
+    if (!ascii_char_set_is_in(c, set)) {
+        return LEXING_ERROR(NONE);
+    }
+
+    lexer_advance_rune(state);
+    *out_char = c;
+    return LEXING_ERROR(OK);
+}
+\end{lstlisting}
+
+Данная функция принимает на вход состояние(\verb|state|), и множество символов(\verb|set|), представленное в виде битового поля,
+проверяет принадлежит ли текущий символ множеству \verb|set|, и в случае принадлежности возвращает символ через указатель \verb|out_ptr|,
+и переводит состояние(\verb|state|) на следующий символ.
+
+Если функция отработала успешно (текущий символ принадлежит множеству \verb|set|), то возвращается \verb|OK|, в противном случае \verb|NONE|.
+В зависимости от возвращенного значения вызывающая функция (caller) решает, что делать дальше.
+
+Похожим образом работают все функции лексического разбора.
+Некоторые из них приведены в приложении[\ref{extras:lexer_fns}]
+
+\clearpage
+\subsection{Пример использования токенизатора}
+
+Для демонстрации полученных токенов, написана функция отладочного вывода \verb|dbg_print_tokens|[\ref{extras:token_dbg_print}]
+
+Напишем маленький пример, использующий функцию\newline \verb|dbg_print_tokens|
+\begin{lstlisting}[language=c, caption={Пример использования лексера}, label={lexing:lexer-usage-ex}]
+    str_t text = S(
+        "int x = y + 3;"
+        );
+    LexerState state;
+    lexer_init_default(&state, text, S("<file>"));
+    darr_t tokens;
+    ASSERT_OK(tokenize(&state, &tokens));
+    dbg_print_tokens(tokens, text, state.file_data_table);
+    darr_free(&tokens);
+    lexer_deinit(&state);
+}
+\end{lstlisting}
+
+Код в переменной \verb|text|:
+\begin{lstlisting}[language=c, caption={Входные данные примера}, label={lexing:usage-ex-in}]
+int x = y + 3;
+\end{lstlisting}
+
+Вывод:
+
+\begin{lstlisting}[language=bash, caption={Входные данные примера}, label={lexing:usage-ex-out}]
+Token:
+    kind: C_TOKEN_KIND_KEYWORD,
+    flags: 0,
+    span: 0(1:1) - 3(1:4) [<file>],
+    text: int
+Token:
+    kind: C_TOKEN_KIND_IDENT,
+    flags: 1,
+    span: 4(1:5) - 5(1:6) [<file>],
+    text: x
+Token:
+    kind: C_TOKEN_KIND_PUNCT,
+    flags: 1,
+    span: 6(1:7) - 7(1:8) [<file>],
+    text: =
+Token:
+    kind: C_TOKEN_KIND_IDENT,
+    flags: 1,
+    span: 8(1:9) - 9(1:10) [<file>],
+    text: y
+Token:
+    kind: C_TOKEN_KIND_PUNCT,
+    flags: 1,
+    span: 10(1:11) - 11(1:12) [<file>],
+    text: +
+Token:
+    kind: C_TOKEN_KIND_NUMBER,
+    flags: 1,
+    span: 12(1:13) - 13(1:14) [<file>],
+    text: 3
+Token:
+    kind: C_TOKEN_KIND_PUNCT,
+    flags: 0,
+    span: 13(1:14) - 14(1:15) [<file>],
+    text: ;
+Token:
+    kind: C_TOKEN_KIND_EOF,
+    flags: 0,
+    span: 14(1:15) - 14(1:15) [<file>],
+    text: unimplemented
+\end{lstlisting}
+
+\clearpage
+\subsection{Препроцессор}
+\label{pass:pp}
+
+Препроцессор интегрирован с лексером(функция \verb|tokenize|) и использует лексер как итератор.
+Препроцессор опциональный, включается флагом \verb|do_preprocessing| структуры \verb|LexerState|.
+Реализицию препроцессора можно посмотреть в приложении[\ref{extras:pp}].
+
+При работе препроцессора, директивы \verb|#include| заменяются токеном \verb|C_TokenInclude|, \\
+дерективы \verb|#define| регистрируют токены макроса в хеш-таблице \verb|LexerState::pp_defs|, \\
+дерективы \verb|#ifdef|, \verb|#ifndef|, \verb|#else|, \verb|#endif| условно влючают или исключают блоки кода, 
+с помощью \verb|LexerState::pp_if_depth|(глубина \verb|#if| стека) и \verb|LexerState::pp_defs|, \\
+идентификаторы проверяются на наличие в таблице \verb|LexerState::pp_defs|, и при наличи заменяются токеном \verb|C_TokenExpand|,
+при этом замена производится рекурсивно.
+
+Приведем пример работы препроцессора:
+
+В построенный выше пример[\ref{lexing:lexer-usage-ex}] подставляем следующий код языка Си:
+\begin{lstlisting}[language=c, caption={Входные данные примера}, label={lexing:pp:ex-out}]
+#define A a
+#define B A b
+#define C B c
+#ifdef C
+#define D d
+#endif
+
+C D
+\end{lstlisting}
+
+Получаем следующую последовательность токенов:
+\begin{lstlisting}[language=bash, caption={Выходные данные примера}, label={lexing:pp:ex-out}]
+Token:
+    kind: C_TOKEN_KIND_IDENT,
+    flags: 1,
+    span: 10(1:11) - 11(1:12) [<file>],
+    text: a
+Token:
+    kind: C_TOKEN_KIND_IDENT,
+    flags: 1,
+    span: 24(2:13) - 25(2:14) [<file>],
+    text: b
+Token:
+    kind: C_TOKEN_KIND_IDENT,
+    flags: 1,
+    span: 38(3:13) - 39(3:14) [<file>],
+    text: c
+
+Token:
+    kind: C_TOKEN_KIND_IDENT,
+    flags: 1,
+    span: 59(5:11) - 60(5:12) [<file>],
+    text: d
+
+Token:
+    kind: C_TOKEN_KIND_EOF,
+    flags: 0,
+    span: 71(7:4) - 71(7:4) [<file>],
+    text: unimplemented
+\end{lstlisting}
+
+Заметим, что в выходных данных[\ref{lexing:pp:ex-out}] мы не видим токенов типа \verb|C_TokenExpand|, 
+т.к. функция \verb|dbg_print_tokens|[\ref{lexing:lexer-usage-ex}] итерирует по вложенной структуре, выводя \textquote{плоский} результат.
+
+\subsection{Постобработка}
+
+На данном этапе, после препроцессора, у нас получилась потенциально древовидная(вложенная) структура.
+Чтобы итерировать по вложенной структуре нужен стек, что добавляет дополнительные затраты(overhead), 
+плюс возвращение парсера к контрольной точке становится потенциально тяжеловесной операцией(приходится копировать весь стек).
+Это происходит в связи с тем, что нельзя предсказать как токены Си будут распределены по макросам препроцессор Си.
+
+
+% Все было бы не так плохо если бы макросы не были бы столь неогранниченными, например:
+
+% Может быть, что элемент грамматики Си разбит на несколько макросов вот так:
+% \beginminteddef{c}
+% #define BE if (1) {
+% #define EN }
+
+% BE
+% // code
+% EN
+% \end{minted}
+
+% и при откате может потребоваться вернуть часть стека поверх, что нетривиально.
+% если добавить ограничение, что макрос может содержать только сбалансированные скобки ('{', '}'), тогда
+
+Поэтому было принято решение уплощить вложенную структуру.
+
+Функции выполняющие это:
+\begin{lstlisting}[language=c, caption={Заголовки функций уплощения}, label={lexing:flat-fns}]
+usize_t
+_c_token_list_flatten_at(darr_T(C_Token) tokens, C_Token *dst);
+AllocatorError
+c_token_list_flatten_in(darr_T(C_Token) tokens, 
+                        usize_t token_count_upper_bound, 
+                        Allocator *alloc, darr_T(C_Token) *out_tokens); 
+\end{lstlisting}
+
+% диаграмма
+
+Теперь все вышесказанное можно организовать в виде прохода:
+
+\begin{lstlisting}[language=c, caption={Функция этапа лексического разбора}, label={lexing:flat-fns}]
+bool
+c_translation_unit_lex(C_TranslationUnitData *self) {
+    ASSERT_OK(arena_init(&self->string_arena, 4096, ctx_global_alloc));
+    ASSERT_OK(hashmap_new_cap_in_T(str_t, TU_FileData, 64, &g_ctx.global_alloc, &self->file_data_table));
+
+    TU_FileData *fdata = nullptr;
+    auto alloc = arena_allocator(&self->string_arena);
+    ASSERT_OK(file_data_table_get_or_load_file(&self->file_data_table, self->main_file, nullptr, 
+        &alloc, &fdata));
+
+    ASSERT_OK(arena_init(&self->token_arena, str_len(fdata->text), ctx_global_alloc));
+
+    LexerState lstate;
+    _translation_unit_lexer_init(self, &lstate, fdata->text);
+
+    if (IS_ERR(tokenize(&lstate, &self->tokens))) {
+        return false;
+    }
+
+    darr_t flat;
+    
+    ASSERT_OK(c_token_list_flatten_in(self->tokens, 
+        arena_total_size(&self->token_arena), &g_ctx.global_alloc, &flat));
+    
+    darr_free(&self->tokens);
+    self->tokens = flat;
+
+    _translation_unit_lexer_deinit(&lstate);
+    return true;
+}
+\end{lstlisting}
+
+% глава или параграф
+Итак в данной главе были рассмотрены:
+\begin{itemize}
+  \item Структура токена Си
+  \item Структура лексера Си
+  \item Некоторые методы лексического разбора
+  \item Препроцессор языка Си
+  \item Постобработка - уплощение структуры токенов
+\end{itemize}

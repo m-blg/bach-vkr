@@ -22,7 +22,17 @@
 \newtotcounter{citenum}
 \AtEveryBibitem{\stepcounter{citenum}}
 
+% https://tex.stackexchange.com/a/551547
+% hack: removes italics in bibliography
+\makeatletter
+\renewrobustcmd*{\mkbibemph}{}
+\protected\long\def\blx@imc@mkbibemph#1{#1}
+\makeatother
 
+\DeclareFieldFormat*{title}{#1}
+\DeclareFieldFormat*{citetitle}{#1}
+\DeclareFieldFormat*{author}{#1}
+\DeclareFieldFormat*{citeauthor}{#1}
 
 % https://tex.stackexchange.com/a/373241
 % \defbibenvironment{bibliography}
@@ -40,3 +50,12 @@
 %       \renewcommand*{\makelabel}[1]{\hss##1}}
 %   {\endlist}
 %   {\item}
+
+\DeclareFieldFormat{title}{#1\isdot}
+\makeatletter
+\DeclareFieldFormat{origtitle}{\bbx@colon@search\MakeSentenceCase*{#1}\isdot}
+\makeatother
+\DeclareFieldFormat{journaltitle}{#1\isdot}
+\DeclareFieldFormat{issuetitle}{#1}
+\DeclareFieldFormat{maintitle}{#1}
+\DeclareFieldFormat{booktitle}{#1}

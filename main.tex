@@ -35,16 +35,20 @@
 \input{common/renames}
 
 %%% Структура диссертации (ГОСТ Р 7.0.11-2011, 4)
-% \include{Dissertation/title}           % Титульный лист
+\include{Dissertation/title}           % Титульный лист
+\pagenumbering{gobble} % без номера: введение
+\include{Dissertation/syn_ru} % реферат на русском
 
-\setcounter{page}{2}    % оглавление начинается с 5 страницы, остальное генерится из ИСУ
+% \setcounter{page}{2}    % оглавление начинается с 5 страницы, остальное генерится из ИСУ
 \renewcommand{\figurename}{Рисунок}
 \renewcommand{\tablename}{Таблица}
-\include{Dissertation/syn_ru} % реферат на русском
 % \include{Dissertation/dictionary}      % Словарь терминов
+
 \include{Dissertation/contents}        % Оглавление
 \include{Dissertation/acronyms}        % Список сокращений и условных обозначений
+\pagenumbering{arabic}
 
+\setcounter{page}{3}    % введение с 3й страницы
 \ifnumequal{\value{contnumfig}}{1}{}{\counterwithout{figure}{chapter}}
 \ifnumequal{\value{contnumtab}}{1}{}{\counterwithout{table}{chapter}}
 % \renewcommand{\figurename}{Рисунок}

@@ -1,67 +1,72 @@
 
 \chapter{Проекты}
-\paragraph{Проект ecc:} \label{extras:ecc} 
-\url{https://github.com/m-blg/c_lang}
+\begin{itemize}
+\item\label{extras:ecc} Проект ecc: \url{https://github.com/m-blg/c_lang}
 
-\paragraph{Библиотека с основными примитивами:} \label{extras:c-core}
-\url{https://github.com/m-blg/c_core}
-
-
-\chapter{Примитивы}
-\section*{Аллокаторы}
-\lstinputlisting[language={c},caption={glibc аллокатор},label={extras:glibc_alloc}]{listings/intro/c_alloc.c}
-
-\lstinputlisting[language={c},caption={Арена аллокатор},label={extras:arena_alloc}]{listings/intro/arena.c}
-
-\section*{Форматтер}
-\lstinputlisting[language={c},caption={Имплементация основных методов StringFormatter},label={extras:fmt_impl}]{listings/intro/fmt.c}
+\item\label{extras:c-core} Библиотека с основными примитивами: \url{https://github.com/m-blg/c_core}
+\end{itemize}
 
 
-\chapter{Лексический разбор}
+\chapter{Детали реализации}
+% \section*{Примитивы}
+% \subsection*{Аллокаторы}
+% \lstinputlisting[language={c},caption={glibc аллокатор},label={extras:glibc_alloc}]{listings/intro/c_alloc.c}
 
-\section*{Определения Си}
+% \lstinputlisting[language={c},caption={Арена аллокатор},label={extras:arena_alloc}]{listings/intro/arena.c}
+
+% \subsection*{Форматтер}
+% \lstinputlisting[language={c},caption={Имплементация основных методов StringFormatter},label={extras:fmt_impl}]{listings/intro/fmt.c}
+
+
+\section*{Лексический разбор}
+
+\subsection*{Определения Си}
 \lstinputlisting[language={c},caption={defs.h},label={extras:c_defs}]{listings/lexing/def.h}
 
-\section*{Структура токена Си}
+\subsection*{Структура токена Си}
 \lstinputlisting[language={c},caption={Структура токена Си},label={extras:c_token}]{listings/lexing/token.c}
 
-\section*{Примеры функций лексического разбора}
+\subsection*{Примеры функций лексического разбора}
 \lstinputlisting[language={c},caption={Примеры функций лексического разбора},label={extras:lexer_fns}]{listings/lexing/lexer_fns.c}
 
-\section*{Функции отладочного форматирования токенов}
+\subsection*{Функции отладочного форматирования токенов}
 \lstinputlisting[language={c},caption={Функции отладочного форматирования токенов},label={extras:token_dbg_print}]{listings/lexing/token.c}
 
 
-\section*{Функция препроцессора}
+\subsection*{Функция препроцессора}
 \lstinputlisting[language={c},caption={Реализация препроцессора},label={extras:pp}]{listings/pp/tokenize.c}
 
 
-\chapter{Грамматический разбор}
-\section*{Абстрактное синтаксическое дерево}
+\section*{Грамматический разбор}
+\subsection*{Абстрактное синтаксическое дерево}
 \lstinputlisting[language={c},caption={C AST},label={extras:c_ast}]{listings/parsing/ast.c}
 
-\section*{Функции разбора выражений}
+\subsection*{Функции разбора выражений}
 \lstinputlisting[language={c},caption={Функции разбора выражений},label={extras:parse_expr}]{listings/parsing/expr.c}
 
-\section*{Функции разбора определений}
-\lstinputlisting[language={c},caption={Функции разбора определений},label={extras:parse_decl}]{listings/parsing/decl.c}
+% \subsection*{Функции разбора определений}
+% \lstinputlisting[language={c},caption={Функции разбора определений},label={extras:parse_decl}]{listings/parsing/decl.c}
 
-\section*{Функции разбора утдверждений}
-\lstinputlisting[language={c},caption={Функции разбора утдверждений},label={extras:parse_stmt}]{listings/parsing/stmt.c}
+% \subsection*{Функции разбора утверждений}
+% \lstinputlisting[language={c},caption={Функции разбора утдверждений},label={extras:parse_stmt}]{listings/parsing/stmt.c}
 
-\section*{Функция разбора единицы трансляции}
-\lstinputlisting[language={c},caption={Функция разбора единицы трансляции},label={extras:parse_tr_unit}]{listings/parsing/tr_unit.c}
+% \subsection*{Функция разбора единицы трансляции}
+% \lstinputlisting[language={c},caption={Функция разбора единицы трансляции},label={extras:parse_tr_unit}]{listings/parsing/tr_unit.c}
 
 
-\chapter{Трансляция Ast}
-\section*{Пример функций трансляции AST обратно в Си}
+\section*{Трансляция Ast}
+\subsection*{Пример функций трансляции AST в язык Си}
 \lstinputlisting[language={c},caption={Функции трансляции AST в Си},label={extras:unparse}]{listings/translation/unparse/unparse.c}
 
-\section*{Пример функций трансляции AST в graphviz}
+\subsection*{Пример функций трансляции AST в graphviz}
 % label always after caption
 \lstinputlisting[language={c},caption={Функции трансляции в graphviz},label={extras:compile-graphviz}]{listings/translation/ast_vis/graphviz.c}
 
+% \section{Упорядочевание определений}
+% \lstinputlisting[language={c},caption={Функции прохода упорядочевания},label={extras:pass:ordering}]{listings/ordering/pass.c}
 
+% vim minted to lstlisting block translation macro
+% dd"jP0jjjf{lyi{0kkkf{lvi{p0jjjf{;lyi{0kkkf{;;;lvi{p0jjjjf{lyi{0kkkkf{;lvi{p0jjjjjf{lyi{0kkkkkf{;;lvi{pjVjjjjjdww<Esc>j
 
 % \chapter{Что-то очень важное}
 % \label{app:details}

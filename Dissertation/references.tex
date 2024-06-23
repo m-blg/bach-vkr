@@ -1,3 +1,16 @@
+\chapter*{\bibname}
+\addcontentsline{toc}{chapter}{\bibname} 
+
 % https://tex.stackexchange.com/a/202797
 \AtNextBibliography{\setcounter{citenum}{0}}
-\printbibliography
+% \printbibliography
+% \begin{samepage}
+% \printbibliography[keyword={non-el}, heading=subbibintoc, title={Книги и статьи}]
+% \end{samepage}
+\nobibintoc
+% https://stackoverflow.com/a/11673899
+\begingroup
+\let\clearpage\relax
+\printbibliography[keyword={non-el}, title={Книги и статьи}]
+\printbibliography[notkeyword={non-el}, title={Электронные ресурсы}]
+\endgroup
