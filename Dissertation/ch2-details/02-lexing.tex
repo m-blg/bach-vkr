@@ -1,6 +1,15 @@
 
+\chapter{СИНТАКСИЧЕСКИЙ АНАЛИЗ}
 
-\clearpage
+Синтаксический анализ текста программы EC происходит в два этапа: 
+\begin{enumerate}
+    \item лексический анализ
+    \item грамматический разбора
+\end{enumerate}
+
+Этапы рассмотрены соответственно в параграфах \ref{pass:lexing} и \ref{pass:parsing}.
+
+% \clearpage
 \section{Лексический анализ}
 \label{pass:lexing}
 
@@ -9,7 +18,7 @@
 
 Выполненный токенизатор(лексер, сканнер) языка Си является LL(2) парсером, т.к. использует до двух look-ahead токенов.
 
-\subsection{Структура токена Си}
+\section{Структура токена Си}
 
 Токен Си - лексема, единица лексического разбора.
 
@@ -54,7 +63,7 @@ struct_def(C_Token, {
   \item \verb|C_TokenNumLiteral| - числовой литерал, например: \verb|'0x1234abcdeful'|
   \item \verb|C_TokenNumLiteral| - числовой литерал, например: \verb|'0x1234abcdeful'|
 
-  Последующие токены относятся к препроцессору и будут рассмотренны далее[\ref{pp}]
+  Последующие токены относятся к препроцессору и будут рассмотренны далее[\ref{pass:pp}]
   \item \verb|C_Token_PP_Directive|
   \item \verb|C_TokenHeaderName|
   \item \verb|C_TokenInclude|
@@ -100,7 +109,7 @@ enum_def(C_TokenKind,
 
 Полный код токена приведен в приложении[\ref{extras:c_token}]
 
-% \subsection{Структура состояния разбора}
+% \section{Структура состояния разбора}
 
 Основная структура лексического анализа, содержащая состояние разбора:
 \begin{lstlisting}[language=c]
@@ -121,7 +130,7 @@ struct_def(LexerState, { ... })
   \item далее идут изменяемые обработчики ошибок
 \end{itemize}
 
-\subsection{Функции лексического анализа}
+\section{Функции лексического анализа}
 \label{lexing:fns}
 
 Главная функция токенизатора, где определяется вид следующей лексемы, выполнена в виде итератора.
@@ -180,7 +189,7 @@ lex_ascii_char_set(LexerState *state, ASCII_CharSet set, uchar_t *out_char) {
 Некоторые из них приведены в приложении[\ref{extras:lexer_fns}]
 
 \clearpage
-\subsection{Пример использования токенизатора}
+\section{Пример использования токенизатора}
 
 Для демонстрации полученных токенов, написана функция отладочного вывода \verb|dbg_print_tokens|[\ref{extras:token_dbg_print}]
 
@@ -250,7 +259,7 @@ Token:
 \end{lstlisting}
 
 \clearpage
-\subsection{Препроцессор}
+\section{Препроцессор}
 \label{pass:pp}
 
 Препроцессор интегрирован с лексером(функция \verb|tokenize|) и использует лексер как итератор.
@@ -267,7 +276,7 @@ Token:
 Приведем пример работы препроцессора:
 
 В построенный выше пример[\ref{lexing:lexer-usage-ex}] подставляем следующий код языка Си:
-\begin{lstlisting}[language=c, caption={Входные данные примера}, label={lexing:pp:ex-out}]
+\begin{lstlisting}[language=c, caption={Входные данные примера}, label={lexing:pp:ex-in}]
 #define A a
 #define B A b
 #define C B c
@@ -312,7 +321,7 @@ Token:
 Заметим, что в выходных данных[\ref{lexing:pp:ex-out}] мы не видим токенов типа \verb|C_TokenExpand|, 
 т.к. функция \verb|dbg_print_tokens|[\ref{lexing:lexer-usage-ex}] итерирует по вложенной структуре, выводя \textquote{плоский} результат.
 
-\subsection{Постобработка}
+\section{Постобработка}
 
 На данном этапе, после препроцессора, у нас получилась потенциально древовидная(вложенная) структура.
 Чтобы итерировать по вложенной структуре нужен стек, что добавляет дополнительные затраты(overhead), 
@@ -351,7 +360,7 @@ c_token_list_flatten_in(darr_T(C_Token) tokens,
 
 Теперь все вышесказанное можно организовать в виде прохода:
 
-\begin{lstlisting}[language=c, caption={Функция этапа лексического разбора}, label={lexing:flat-fns}]
+\begin{lstlisting}[language=c, caption={Функция этапа лексического разбора}, label={lexing:pass-fn}]
 bool
 c_translation_unit_lex(C_TranslationUnitData *self) {
     ASSERT_OK(arena_init(&self->string_arena, 4096, ctx_global_alloc));

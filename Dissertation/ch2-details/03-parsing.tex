@@ -2,7 +2,7 @@
 % \section{Грамматический разбор}
 % \label{pass:parsing}
 
-% \subsection{Парсер Пратта}
+% \section{Парсер Пратта}
 % \label{pass:parsing:pratt}
 % Парсер Пратта использует комбинацию циклов и рекурсивных вызовов функций.
 % Есть хорошая статья, в которой приводится реализация данного парсера на языке Rust\cite{matklad_pratt_parsers}.
@@ -73,10 +73,212 @@
 \section{Грамматический разбор}
 \label{pass:parsing}
 
-% Грамматический разбор 
+Далее будет рассмотрен грамматический разбор или парсинг потока токенов, получаемый после прохода лексера.
+Грамматический разбор - процесс превращения потока(последовательности) лексических единиц в синтаксическое дерево, рассматриваемое далее[\ref{parsing:ast}].
+Разбор производится методом рекурсивного спуска, который рассматривается далее[\ref{parsing:rec-desc}]. Для разбора выражений используется парсер Пратта, рассмотренные далее в параграфе[\ref{pass:parsing:pratt}].
 
-% Метод рекурсивного спуска
+\section{Метод рекурсивного спуска}
+\label{parsing:rec-desc}
 
+Метод рекурсивного спуска заключается в применении взаимно рекурсивных функций для разбора последовательно лексем.
+Каждая рекурсивная функция соответствует какому-то нетерминалу грамматики языка.
+Среди функций разбора, есть нерекурсивные, соответствующие некоторым терминалам языка.
+
+Различают предсказывающие и спекулятивные(парсеры с возвратом) парсеры рекурсивного спуска:
+\begin{itemize}
+\item предсказывающие по конкретному токену(токенам) могут определить, какое правило разбора применить дальше. Работают за линейное время.
+\item спекулятивные последовательно пробуют несколько правил разбора, пока одно не сработает. Такие парсера потенциально(в худшем случае) работают за экспоненциальное время.
+\end{itemize}
+
+В данной работе реализован предсказывающий парсер, однако можно заметить, 
+что в коде(например функции разбора определений[\ref{extras:parse_decl}]) используются спекулятивные вызовы(оборачиваемые в макрос \verb|PARSER_OPTIONAL|[\ref{parsing:parser-optional-expl}]).
+Подобные вызовы используют только терминальные функции, вследствие чего подобный вызов аналогичен обычной проверки условия, например на то, что текущий токен является пунктуатором.
+
+Например, следующее условие с вызовом:
+
+\begin{lstlisting}[language=c]
+if (IS_OK(PARSER_OPTIONAL(c_parse_t_punct_kind(state, C_PUNCT_EQUAL, &tok)))) {
+    ...
+}
+\end{lstlisting}
+
+эквивалентно условию:
+
+\begin{lstlisting}[language=c]
+if (tok->kind == C_TOKEN_KIND_PUNCT && tok->t_punct.punct_kind == C_PUNCT_EQUAL) {
+    *tok = parser_advance(state);
+    ...
+}
+\end{lstlisting}
+
+
+\section{Структура парсера и его методы}
+
+Также как на этапе лексического разбора[\ref{pass:lexing}] на данном этапе имеется структура, содержащая состояние разбора.
+
+\begin{lstlisting}[language=c]
+struct_def(ParserState, { ... })
+\end{lstlisting}
+
+Данная структура содержит информацию о:
+\begin{itemize}
+    \item последовательности разбираемых токенов
+    \item номер текущего разбираемого токена
+    \item текущее окружение, для разрешения имен
+    \item флаг, указывающий, откладывает ли парсер разбор контекстно зависимых частей языка
+    \item флаг, указывающий, находится ли парсер в режиме ошибки
+    \item аллокаторы для строк и элементов AST
+    \item функции обработки ошибок аллокации и возникающих при разборе
+\end{itemize}
+
+
+
+У парсера имеются методы для сигнализации и обработки ошибок.
+
+Когда какая-нибудь функция разбора возвращается ошибку, она дополнительно может привести сообщение об ошибке с помощью макросов:
+
+\begin{lstlisting}[language=c, caption={Макросы сообщения об ошибке}]
+#define parser_error(state, _msg, args...) ...
+#define parser_error_pos(state, _pos, _msg, args...) ...
+#define parser_error_expected(state, expected, args...) ... 
+\end{lstlisting}
+
+При выполнении эти макросы ставят флаг \verb|ParserState::was_error|, сообщая дальнейшим процессам о наличии ошибки.
+При этом ошибка устанавливается, только если нет активной ошибки (флаг \verb|ParserState::was_error| равен \verb|false|), так в цепочке ошибок до конца дойдет только первая встретившаяся, 
+находящаяся на глубине стека вызовов и соответственно самая частная, зачастую несущая информацию о том, что пользователю надо изменить в программе, чтобы та была корректной.
+
+В добавок к этому функции разбора возвращают статут разбора при завершении:
+\begin{lstlisting}[language=c, caption={Виды статуса возвращаемого значения парсера}]
+enum_def(ParsingError, 
+    PARSING_ERROR_OK,
+    PARSING_ERROR_NONE,
+    PARSING_ERROR_EOF,
+)
+#define PARSING_ERROR(ERR) ((ParsingError)PARSING_ERROR_##ERR)
+\end{lstlisting}
+
+Для обработки вышеперечисленного вызывающими функциями(callers) используются следующие макросы: 
+\begin{lstlisting}[language=c, caption={Вспомогательные макросы обработки состояния разбора}]
+#define PARSER_ALLOC_HANDLE(f) ...
+#define PARSER_TRY(p) ... 
+#define PARSER_OPTIONAL(p) ...
+#define PARSING_OK(state) ...
+#define PARSING_NONE(state, prev) ...
+\end{lstlisting}
+
+Где
+\begin{itemize}
+    \item \verb|PARSER_ALLOC_HANDLE| - при неудачном завершении вызываемого, вызывает обработчик ошибок аллокации, строенный в парсер
+    \item \verb|PARSER_TRY| - при неудачном завершении вызываемого, отдаст ошибку далее по стеку
+    \item\label{parsing:parser-optional-expl} \verb|PARSER_OPTIONAL| - при неудачном завершение вызываемого, "заглушит" ошибку
+    \item \verb|PARSER_OK| - выйдет из функции с "успехом" 
+    \item \verb|PARSER_NONE| - выйдет из функции с "неудачей", восстановив состояние парсера до начала разбора текущей функцией
+\end{itemize}
+
+% \beginminteddef{c}
+% \end{minted}
+
+
+
+
+\section{Абстрактное синтаксическое дерево}
+\label{parsing:ast}
+
+Грамматика языка Си приведена в CFG форме, каждый нетерминал грамматики по сути является элементом синтаксического дерева, 
+однако после разбора такое дерево сдержит множество излишних деталей, подробностей разбора.
+Разработанное абстрактное синтаксическое дерево(AST) является "выжимкой" из синтаксического дерева и будет рассмотрено далее.
+
+Абстрактное синтаксическое дерево, получаемое в ходе грамматического разбора, состоит из элементов(nodes).
+Как и в случае с лексером тип \verb|C_Ast_Node| тоже является типом объединения частных типов, которые зачастую в свою очередь тоже являются объединениями дочерних типов.
+Данная иерархия будет рассмотрена далее, полный код синтаксического дерева можно посмотреть в приложении[\ref{extras:c_ast}].
+
+Самый общий тип иерархии тип \verb|C_Ast_Node|, далее приведено определение его структуры:
+
+
+\begin{lstlisting}[language=c, caption={Структура элемента AST}, label={parsing:ast:node-struct}]
+#define C_AST_NODE_BASE \
+    C_Ast_NodeKind kind;\
+    C_ParserSpan span;\
+
+struct_def(C_Ast_Node, {
+    union {
+    struct {
+        C_AST_NODE_BASE
+    };
+        C_Ast_Ident ident;
+        C_Ast_Literal lit;
+        C_Ast_Expr expr;
+        C_Ast_Stmt stmt;
+        C_Ast_Type ty;
+        C_Ast_Decl decl;
+        C_Ast_TranslationUnit tr_unit;
+    #ifdef EXTENDED_C
+        C_Ast_AtDirective at_directive;
+    #endif // EXTENDED_C
+    };
+})
+\end{lstlisting}
+
+Элементами его являются:
+\begin{itemize}
+    \item идентификатор
+    \item литерал
+    \item выражение
+    \item утверждения
+    \item имя-типа
+    \item определение
+    \item единица-трансляции
+    \item @ директива
+\end{itemize}
+
+При разборе ноды дерева сохраняются в отдельную арену памяти(далее \verb|ParserState::ast_arena|).
+
+Замечание: \verb|C_AST_Node| - тип переменной длины, для конкретной ноды ее размер равен размеру частной ноды,
+т.е. чтобы скопировать или записать существующую ноду надо сначала понять, какого она типа.
+
+Для построения нод используются вспомогательные макросы:
+\begin{lstlisting}[language=c]
+#define make_node(state, out_node, KIND_SUFF, args...) {\
+    PARSER_ALLOC_HANDLE(allocator_alloc_T(&state->ast_alloc, typeof(**out_node), out_node));\
+    **out_node = ((typeof(**out_node)) {.kind = C_AST_NODE_KIND_##KIND_SUFF, ##args });\
+}
+#define make_node_type(state, out_node, TYPE_KIND_SUFF, args...) ...
+#define make_node_decl(state, out_node, DECL_KIND_SUFF, args...) ...
+#define make_node_stmt(state, out_node, STMT_KIND_SUFF, args...) ...
+#define make_node_expr(state, out_node, EXPR_KIND_SUFF, args...) ...
+#define make_node_lit(state, out_node, LIT_KIND_SUFF, args...) ...
+\end{lstlisting}
+
+Данные макросы выделяют достаточное кол-во памяти под данный тип элемента AST, и заполняют его приведенными полями.
+
+% \section{@ директивы}
+Отдельным элементом стоят @ директивы, добавленные в расширении.
+Далее привожу их грамматику:
+
+% \clearpage
+% \label{pass:parsing:at-directive}
+
+Привожу грамматику директив, встраиваемою в грамматику Си, приведенную в стандартах\cite{c99_std}:
+\begin{lstlisting}[language=bash, caption={Грамматика @ директив}, label={parsing:at-directive:grammar}]
+at-directive:
+    @ directive-name
+    @ directive-name (at-directive-args)
+
+at-directive-args:
+    at-directive-args at-directive-arg     
+
+at-directive-arg:
+    identifier-or-literal
+
+identifier-or-literal:
+    identifier
+    literal
+
+literal:
+    constant
+\end{lstlisting}
+
+\section{Контекстная зависимость грамматики Си}
 
 Грамматика фразовых структур языка Си, приведенная в стандарте\cite{c99_std} (Annex A, 2. Phrase structure grammar),
 по большей части является контекстно свободной, однако зависимость от контекста, можно показать на следующем примере(пример взять из статьи\cite{eli_c_cs}):
@@ -156,154 +358,50 @@ c_environment_get_sym_data(C_Environment env, C_Symbol sym) {
 \end{lstlisting}
 
 
-% \subsection{Структура парсера}
-
-Также как на этапе лексического разбора[\ref{pass:lexing}] на данном этапе имеется структура содержащая состояние разбора.
-
-\begin{lstlisting}[language=c]
-struct_def(ParserState, { ... })
-\end{lstlisting}
-
-Данная структура содержит информацию о:
-\begin{itemize}
-    \item последовательности разбираемых токенов
-    \item номер текущего разбираемого токена
-    \item текущее окружение, для разрешения имен
-    \item флаг, указывающий, откладывает ли парсер разбор контекстно зависимых частей языка
-    \item флаг, указывающий, находится ли парсер в режиме ошибки
-    \item аллокаторы для строк и элементов AST
-    \item функции обработки ошибок аллокации и возникающих при разборе
-\end{itemize}
 
 
 
-% \subsubsection{Обработка ошибок}
-
-% Когда какая-нибудь функция разбора возвращается ошибку, она дополнительно может привести сообщение об ошибке с помощью макросов:
-
-% \beginminteddef{c}
-% #define parser_error(state, _msg, args...) { \
-%     if (!state->was_error) { \
-%         (state)->last_error = (ParsingErrorData) { \
-%             .pos = parser_pos(state), \
-%             .msg = (_msg), \
-%             .msg_kind = PARSING_ERROR_MESSAGE_KIND_NORMAL, \
-%             ##args \
-%         }; \
-%         (state)->was_error = true; \
-%     } \
-% }
-% #define parser_error_pos(state, _pos, _msg, args...) ...
-% #define parser_error_expected(state, expected, args...) ... 
-% \end{minted}
-
-% При выполнении эти макросы ставят флаг \verb|ParserState::was_error|, сообщая дальнейшим процессам о наличии ошибки.
-% При этом ошибка устанавливается, только если нет активной ошибки (флаг \verb|ParserState::was_error| равен \verb|false|), так в цепочке ошибок до конца дойдет только первая встретившаяся, 
-% находящаяся на глубине стека вызовов и соответственно самая частная, зачастую несущая информацию о том, что пользователю надо изменить в программе, чтобы та была корректной.
-
-% В добавок к этому функции разбора возвращают статут разбора при завершении:
-% \beginminteddef{c}
-% enum_def(ParsingError, 
-%     PARSING_ERROR_OK,
-%     PARSING_ERROR_NONE,
-%     PARSING_ERROR_EOF,
-% )
-% #define PARSING_ERROR(ERR) ((ParsingError)PARSING_ERROR_##ERR)
-% \end{minted}
-
-% Для обработки вышеперечисленного вызывающими функциями(callers) используются следующие макросы: 
-% \beginminteddef{c}
-% #define PARSER_ALLOC_HANDLE(f) ...
-% #define PARSER_TRY(p) ... 
-% #define PARSER_OPTIONAL(p) ...
-% #define PARSING_OK(state) ...
-% #define PARSING_NONE(state, prev) ...
-% \end{minted}
-
-% Где
-% \begin{itemize}
-% \item \verb|PARSER_ALLOC_HANDLE| - 
-% \item \verb|PARSER_TRY| - при неудачном завершении вызываемого, отдаст ошибку далее по стеку
-% \item \verb|PARSER_OPTIONAL| - при неудачном завершение вызываемого, "заглушит" ошибку
-% \item \verb|PARSER_OK| - выйдет из функции с "успехом" 
-% \item \verb|PARSER_NONE| - выйдет из функции с "неудачей", восстановив состояние парсера до начала разбора текущей функцией
-% \end{itemize}
-
-% \beginminteddef{c}
-% \end{minted}
-
-\subsection{Абстрактное синтаксическое дерево}
-
-Грамматика языка Си приведена в CFG форме, каждый нетерминал грамматики по сути является элементом синтаксического дерева, 
-однако после разбора такое дерево сдержит множество излишних деталей, подробностей разбора.
-Разработанное абстрактное синтаксическое дерево(AST) является "выжимкой" из синтаксического дерева и будет рассмотрено далее.
-
-Абстрактное синтаксическое дерево, получаемое в ходе грамматического разбора, состоит из элементов(nodes).
-Как и в случае с лексером тип \verb|C_Ast_Node| тоже является типом объединения частных типов, которые зачастую в свою очередь тоже являются объединениями дочерних типов.
-Данная иерархия будет рассмотрена далее, полный код синтаксического дерева можно посмотреть в приложении[\ref{extras:c_ast}].
-
-Самый общий тип иерархии тип \verb|C_Ast_Node|, далее приведено определение его структуры:
 
 
-\begin{lstlisting}[language=c, caption={Структура элемента AST}, label={parsing:ast:node-struct}]
-#define C_AST_NODE_BASE \
-    C_Ast_NodeKind kind;\
-    C_ParserSpan span;\
 
-struct_def(C_Ast_Node, {
-    union {
-    struct {
-        C_AST_NODE_BASE
-    };
+\section{Функции грамматического разбора}
 
-        C_Ast_Ident ident;
-        C_Ast_Literal lit;
-        C_Ast_Expr expr;
-        C_Ast_Stmt stmt;
-        C_Ast_Type ty;
-        C_Ast_Decl decl;
-        C_Ast_TranslationUnit tr_unit;
-    #ifdef EXTENDED_C
-        C_Ast_AtDirective at_directive;
-    #endif // EXTENDED_C
-    };
-})
-\end{lstlisting}
+Рассмотрим самую внешнюю функцию грамматического разбора - функцию разбора единицы трансляции языка EC.
+\begin{lstlisting}[language=c, caption={Функция разбора единицы трансляции}, label={parsing:ec-parse-tr-unit}]
+ParsingError
+ec_parse_translation_unit(ParserState *state, EC_Ast_TranslationUnit **out_tr_unit) {
+    auto prev = parser_save(state);
 
-Элементами его являются:
-\begin{itemize}
-    \item идентификатор
-    \item литерал
-    \item выражение
-    \item утверждения
-    \item имя-типа
-    \item определение
-    \item единица-трансляции
-    \item @ директива
-\end{itemize}
+    darr_t tr_unit_items;
+    PARSER_ALLOC_HANDLE(darr_new_cap_in_T(EC_Ast_TrUnitItem *, 16, &state->ast_alloc, &tr_unit_items));
 
-При разборе ноды дерева сохраняются в отдельную арену памяти(далее \verb|ParserState::ast_arena|).
+    EC_Ast_TrUnitItem *item = nullptr;
+    while (parser_peek(state)->kind != C_TOKEN_KIND_EOF) {
+        PARSER_ALLOC_HANDLE(darr_reserve_cap(&tr_unit_items, 1));
+        if (parser_peek_punct_kind(state, C_PUNCT_AT)) {
+            if (IS_ERR(ec_parse_at_directive(state, (EC_Ast_AtDirective **)&item))) {
+                PARSING_NONE(state, &prev);
+            }
+        } else if (IS_ERR(c_parse_declaration(state, (C_Ast_Decl **)&item))) {
+            PARSING_NONE(state, &prev);
+        }
 
-Замечание: \verb|C_AST_Node| - тип переменной длины, для конкретной ноды ее размер равен размеру частной ноды,
-т.е. чтобы скопировать или записать существующую ноду надо сначала понять, какого она типа.
+        *darr_get_unchecked_T(EC_Ast_TrUnitItem *, tr_unit_items, darr_len(tr_unit_items)) = item;
+        tr_unit_items->len += 1;
+    }
 
-Для построения нод используются вспомогательные макросы:
-\begin{lstlisting}[language=c]
-#define make_node(state, out_node, KIND_SUFF, args...) {\
-    PARSER_ALLOC_HANDLE(allocator_alloc_T(&state->ast_alloc, typeof(**out_node), out_node));\
-    **out_node = ((typeof(**out_node)) {.kind = C_AST_NODE_KIND_##KIND_SUFF, ##args });\
+    make_node(state, out_tr_unit, EC_TR_UNIT, 
+            .items = tr_unit_items,
+            .span = parser_span_from_save(state, &prev),
+        );
+
+    return PARSING_ERROR(OK);
 }
-#define make_node_type(state, out_node, TYPE_KIND_SUFF, args...) ...
-#define make_node_decl(state, out_node, DECL_KIND_SUFF, args...) ...
-#define make_node_stmt(state, out_node, STMT_KIND_SUFF, args...) ...
-#define make_node_expr(state, out_node, EXPR_KIND_SUFF, args...) ...
-#define make_node_lit(state, out_node, LIT_KIND_SUFF, args...) ...
 \end{lstlisting}
 
-Данные макросы выделяют достаточное кол-во памяти под данный тип элемента AST, и заполняют его приведенными полями.
 
 
-% \subsection{Идентификаторы и литералы}
+% \section{Идентификаторы и литералы}
 
 % \beginminteddef{c}
 % struct_def(C_Ast_Ident, {
@@ -327,9 +425,9 @@ struct_def(C_Ast_Node, {
 % \end{itemize}
 
 \clearpage
-\subsection{Выражения}
+\section{Выражения}
 
-Следующая диаграмма иллюстрирует структуру AST выражения: 
+Следующая диаграмма[\ref{parsing:expr-ast-diag}] иллюстрирует структуру AST для выражении языка Си: 
 
 % \begin{tikzpicture}[
 % roundnode/.style={ellipse, draw=black!60, fill=green!0, very thick, minimum size=7mm},
@@ -366,7 +464,7 @@ struct_def(C_Ast_Node, {
 %     C_AST_EXPR_KIND_CONDOP, // ?:
 %     C_AST_EXPR_KIND_CAST,
 %     C_AST_EXPR_KIND_FN_CALL,
-%     C_AST_EXPR_KIND_ARRAY_SUB,
+%     C_AST_EXPR_KIND_ARRAY_,
 %     C_AST_EXPR_KIND_COMPOUND, // expr, expr, ... expr
 % )
 % \end{lstlisting}
@@ -379,14 +477,14 @@ struct_def(C_Ast_Node, {
 %   \item \verb|CONDOP| - \verb|x > y ? a : b|
 %   \item \verb|CAST| - \verb|(T) expr|
 %   \item \verb|FN_CALL| - \verb|f(e1, e2, e3)|
-%   \item \verb|ARRAY_SUB| - \verb|arr[x]|
+%   \item \verb|ARRAY_| - \verb|arr[x]|
 %   \item \verb|COMPOUND| - \verb|e1, e2, e3|
 % \end{itemize}
 
 % % \beginminteddef{c}
 % % \end{minted}
 
-% \subsubsection{Разбор выражений}
+% \subsection{Разбор выражений}
 
 Для разбора выражений используется парсер Пратта, который хорошо сочетается с разбором методом рекурсивного спуска.
 Данный парсер использует таблицу приоритета и ассоциативности операторов. Данная таблица приведена в определениях[\ref{extras:c_defs}].
@@ -395,9 +493,8 @@ struct_def(C_Ast_Node, {
 Отдельно обрабатывается тернарный условный оператор \verb|?:|.
 
 Для каждого из этих групп есть функция, распознающая оператор по типу с ограничением по приоритету.
-Замечание: числовое значение приоритета идет(возрастает) в порядке убывания приоритета[\cite{cppref_op_prec}].
 
-\begin{lstlisting}[language=c]
+\begin{lstlisting}[language=c, caption={Функции разбора операторов}, label={parsing:expr:parse-op-headers}]
 ParsingError
 c_parse_expr_op_infix_prec_rb(ParserState *state, C_Ast_ExprBinOp **out_binop, u8_t max_precedence, bool is_strict_precedence);
 ParsingError
@@ -408,14 +505,16 @@ ParsingError
 c_parse_expr_op_tern_cond_prec_rb(ParserState *state, C_Ast_ExprCondOp **out_tern, u8_t max_precedence, bool is_strict_precedence);
 \end{lstlisting}
 
+Замечание: числовое значение приоритета идет(возрастает) в порядке убывания приоритета[\cite{cppref_op_prec}].
+
 Так например \verb|c_parse_expr_op_infix_prec_rb| проверяет принадлежит ли пунктуатор множеству инфиксных операторов,
 затем если приоритет оператора ниже минимального приоритета, то функция выходит с ошибкой, 
 если приоритет совпадает с минимальным, то проверяется ассоциативность, если оператор группируется слева на право, то функция выходит с ошибкой.
 Также существует флаг \verb|STRICT_PRECEDENCE|, отсекающий случай равных приоритетов.
 
-Следующие функции разбирают выражения, имплементацию их можно посмотреть в приложении[\ref{extras:parse_expr}]
+Следующие функции разбирают выражения, имплементацию их можно посмотреть в приложении[\ref{extras:parse_expr}].
 
-\begin{lstlisting}[language=c]
+\begin{lstlisting}[language=c, caption={Заголовки функции разбора выражений}, label={parsing:expr:parse-expr-headers}]
 ParsingError
 _c_parse_expr(ParserState *state, C_Ast_Expr **out_expr, u8_t max_precedence, C_ExprFlags flags);
 ParsingError
@@ -429,7 +528,7 @@ c_parse_expr(ParserState *state, C_Ast_Expr **out_expr);
 
 Графическое изображение AST выражения см. далее[\ref{pratt:right-lean-diag}] и [\ref{graphviz:expr}]
 
-\subsubsection{Парсер Пратта}
+\section{Алгоритм парсера Пратта}
 \label{pass:parsing:pratt}
 
 Парсер Пратта использует комбинацию циклов и рекурсивных вызовов функций.
@@ -477,21 +576,20 @@ c_parse_expr(ParserState *state, C_Ast_Expr **out_expr);
 Синтаксические деревья полученные после разбора таких операторов, являются наклоненными налево, как показано на диаграмме[\ref{pratt:left-lean-diag}].
 
 
-
 % \begin{figure}[h!]
-%     \begin{subfigure}{.5\textwidth}
+%     \begin{figure}{.5\textwidth}
 %         \includegraphics[width=.4\linewidth]{right-lean-diag.png}
 %         \centering
 %         \caption{AST цепочки операторов с убывающим номером порядка следования}
 %         \label{pratt:right-lean-diag}
-%     \end{subfigure}
+%     \end{figure}
 
-%     \begin{subfigure}{.5\textwidth}
+%     \begin{figure}{.5\textwidth}
 %         \includegraphics[width=.4\linewidth]{left-lean-diag.png}
 %         \centering
 %         \caption{AST цепочки операторов с возрастающим номером порядка следования}
 %         \label{pratt:left-lean-diag}
-%     \end{subfigure}
+%     \end{figure}
 % \end{figure}
 
 % \begin{figure}[h!]
@@ -526,10 +624,13 @@ c_parse_expr(ParserState *state, C_Ast_Expr **out_expr);
 \FloatBarrier
 
 
+Комбинируя два этих подхода получаем всевозможные синтаксические деревья для выражений.
+
+Подробнее данный алгоритм можно посмотреть в реализации функции \verb|_c_parse_expr| в приложении[\ref{extras:parse_expr}].
 
 
 
-% \subsection{Определения}
+% \section{Определения}
 
 % Виды нод типов:
 % \beginminteddef{c}
@@ -576,7 +677,7 @@ c_parse_expr(ParserState *state, C_Ast_Expr **out_expr);
 % Пример визуализации AST для такого определения см. далее[\ref{graphviz:decl}]
 
 
-% \subsection{Утверждения}
+% \section{Утверждения}
 
 % Виды утверждений:
 % \beginminteddef{c}
@@ -645,7 +746,7 @@ c_parse_expr(ParserState *state, C_Ast_Expr **out_expr);
 % Функция \verb|c_parse_block| добавляет новое пространство имен в \verb|ParserState::env| и заполняет его.
 
 
-% \subsection{Единица трансляции}
+% \section{Единица трансляции}
 
 % \verb|C_Ast_TranslationUnit| - AST элемент единица трансляции разбирается схоже с составные утверждением (функция \verb|c_parse_block|),
 % однако элементами единицы трансляции являются только определения.
@@ -678,27 +779,7 @@ c_parse_expr(ParserState *state, C_Ast_Expr **out_expr);
 % }
 % \end{minted}
 
-% \clearpage
-\subsection{@ директивы}
-
-Привожу грамматику директив, встраиваемою в грамматику Си, приведенную в стандартах:
-\begin{lstlisting}[language=bash, caption={Грамматика @ директив}]
-at-directive:
-    @ directive-name
-    @ directive-name (at-directive-args)
-
-at-directive-args:
-    at-directive-args at-directive-arg     
-
-at-directive-arg:
-    identifier-or-literal
-
-identifier-or-literal:
-    identifier
-    literal
-
-literal:
-    constant
-\end{lstlisting}
 
 Таким образом после этапа грамматического разбора мы получаем абстрактное синтаксическое дерево, которое может использовать в дальнейшей работе.
+
+По итогам данной главы были рассмотрены основные этапы и методы синтаксического анализа.

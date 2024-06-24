@@ -1,5 +1,5 @@
-\clearpage
-\section{Трансляция AST}
+% \clearpage
+\chapter{ТРАНСЛЯЦИЯ AST}
 
 Трансляция AST осуществляется с помощью обхода дерева в глубину, что иллюстрирует следующее изображение[\ref{pass:compile-c:dfs-diag}]:
 
@@ -11,7 +11,7 @@
 \end{figure}
 \FloatBarrier
 
-\subsection{Визуализация AST: Трансляция в dot}
+\section{Визуализация AST: Трансляция в dot}
 \label{pass:compile-dot}
 
 Можно визуализировать AST путем трансляции его к языку \textquote{dot} утилиты graphviz.
@@ -82,7 +82,7 @@ x = (a = a1) && b == c || d
 После трансляции данного определения в язык dot с последующей компиляцией
 получаем следующую схему AST выражения[\ref{graphviz:expr}]:
 \begin{figure}[h!]
-    \includegraphics[width=\textwidth,height=\textheight,keepaspectratio]{expr_out.png}
+    \includegraphics[width=0.8\textwidth]{expr_out.png}
     \centering
     \caption{AST выражения Си}
     \label{graphviz:expr}
@@ -97,7 +97,7 @@ x = (a = a1) && b == c || d
 
 
 
-\subsection{Трансляция AST в язык Си}
+\section{Трансляция AST в язык Си}
 \label{pass:compile-c}
 
 

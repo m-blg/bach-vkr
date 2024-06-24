@@ -40,7 +40,7 @@ gen_dbg_fmt(C_TranslationUnitData *data, C_Ast_Decl *decl, C_Ast_TranslationUnit
 Пример применения данной системы был рассмотрен выше[\ref{use-ex:code-gen}].
 
 
-\subsection{Компиляция макросов}
+\section{Компиляция макросов}
 \label{pass:macros:compile}
 Рассмотрим процесс компиляции макросов подробнее.
 Единица трансляции, в которой компилируются макросы отличается от обычной только тем, что в ней нет стадии применения макросов, 
@@ -125,15 +125,15 @@ ec_translation_unit_compile_macros(C_TranslationUnitData *self, C_BuildData *bui
 \end{lstlisting}
 
 Как можно видеть сначала файл с макросами, полученный из \verb|build_data|, сначала преобразуется к AST, 
-функциями \verb|c_translation_unit_lex| и \verb|ec_translation_unit_parse|, 
+функциями \newline\verb|c_translation_unit_lex| и \verb|ec_translation_unit_parse|, 
 рассмотренных ранее в соответствующих главах лексического[\ref{pass:lexing}] и грамматического разбора[\ref{pass:parsing}].
 
-К полученному AST далее применяется проход \verb|ec_translation_unit_collect_proc_macro_names|, 
+К полученному AST далее применяется проход \newline\verb|ec_translation_unit_collect_proc_macro_names|, 
 который строит таблицу(заполняет) таблицу символов макро-функций[\ref{pass:macros:proc-macro-struct}], 
 собирая имена макро-функций и имена символов, реализующие их.
 Делает она это путем интерпретации директив(на данный момент только \verb|@derive_macro|).
 
-После формирования таблицы символов для макро-функций, выполняется трансляция AST к коду языка Си функцией \verb|ec_translation_unit_ast_compile_c|, 
+После формирования таблицы символов для макро-функций, выполняется трансляция AST к коду языка Си функцией \newline\verb|ec_translation_unit_ast_compile_c|, 
 разобранной ранее[\ref{pass:compile-c}]. Полученный код языка Си записывается в выходной промежуточный файл средствами типа \verb|OutputFileStream|.
 
 Наконец промежуточный файл с кодом макро-функций на языке Си компилируется в динамическую библиотеку с помощью компилятора, 
@@ -142,7 +142,7 @@ ec_translation_unit_compile_macros(C_TranslationUnitData *self, C_BuildData *bui
 
 Если на каком-то этапе выполнения некоторая подфункция вернет ошибку, то вся функция возвращается с ошибкой, возвращая |false|.
 
-\subsection{Динамическая загрузка макросов}
+\section{Динамическая загрузка макросов}
 \label{pass:macros:load}
 
 После получения динамической библиотеки макро-функций(назовем \verb|libmacros.so|) выполняется динамическая загрузка библиотеки в виртуальную память процесса компилятора \verb|ecc|.
@@ -210,7 +210,7 @@ ec_translation_unit_load_macro_symbols(C_TranslationUnitData *self, str_t libmac
 
 Если какой-то символ не может быть разрешен, то функция данная функция[\ref{pass:macros:load-impl}] выдает ошибку.
 
-\subsection{Применение макросов}
+\section{Применение макросов}
 \label{pass:macros:apply}
 
 Теперь, когда у нас есть таблица макро-функций с загруженными символами, мы можем применить макро-функции в коду основного модуля(единицы трансляции),

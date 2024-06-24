@@ -1,4 +1,4 @@
-arsingError
+ParsingError
 _c_parse_expr(ParserState *state, C_Ast_Expr **out_expr, u8_t max_precedence, C_ExprFlags flags) {
     auto prev = parser_save(state);
     C_Token *tok = parser_peek(state);

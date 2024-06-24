@@ -112,7 +112,7 @@ __thread struct {
 
 Используется интерфейс абстрактного аллокатора:
 
-\begin{lstlisting}[language=c, caption={Макросы обработки ошибок}, label={primitives:error-macros}]
+\begin{lstlisting}[language=c, caption={Интерфейс абстрактного аллокатора}, label={primitives:allocator-api}]
 AllocatorError
 allocator_alloc(Allocator* self, usize_t size, usize_t alignment, void **out_ptr);
 AllocatorError
@@ -169,7 +169,7 @@ typedef uint32_t rune_t;
 Для конвертации строковых литералов Си к типу \verb|str_t| используется макрос препроцессора Си: \verb|S(str)|.
 
 При лексическом разборе[\ref{pass:lexing}] используется интерфейс итераторов считывания/записи юникод символов:
-\begin{lstlisting}[language=c, caption={Функиции итерации считывания/записи строк}, label={primitives:str-iter-api}]
+\begin{lstlisting}[language=c, caption={Функции итерации считывания/записи строк}, label={primitives:str-iter-api}]
 UTF8_Error
 str_next_rune(str_t self, rune_t *out_rune, str_t *out_self);
 UTF8_Error
@@ -197,7 +197,7 @@ StreamWriter
 string_stream_writer(String *self);
 \end{lstlisting}
 
-\item Форматирование строк
+\item\label{primitives:formatter} Форматирование строк
 
 Для форматирования строк используется тип \verb|StringFormatter|, содержащий текущее состояние форматирования и настройки форматирования:
 строку для индентации(например \verb|"    "|), выходной поток, куда форматтер выводит результат.
@@ -216,7 +216,7 @@ string_formatter_write_fmt(StringFormatter *fmt, str_t fmt_str, ...);
 добавлена поддержка строк типа \verb|str_t| и объектов реализующих интерфейс \verb|Formattable|[\ref{primitives:formattable-api}].
 
 Интерфейс абстрактного форматируемого объекта \verb|Formattable|:
-\begin{lstlisting}[language=c, caption={Интерфейс абстрактного форматируемого объекта}, label={primitives:formattables-api}]
+\begin{lstlisting}[language=c, caption={Интерфейс абстрактного форматируемого объекта}, label={primitives:formattable-api}]
 FmtError 
 formattable_fmt(Formattable *self, StringFormatter *fmt);
 \end{lstlisting}
@@ -254,7 +254,7 @@ formattable_fmt(Formattable *self, StringFormatter *fmt);
 \begin{itemize}
     \item \verb|slice_t| - статический массив, выполнен как указатель и кол-во элементов.
     \item \verb|darr_t| - динамический массив, владеет паматью и хранит абстрактный аллокатор.
-    \item \verb|hashmap_t| - хеш-таблица.
+    \item\label{primitives:hashmap} \verb|hashmap_t| - хеш-таблица.
     \item \verb|hashset_t| - хеш-множество.
 \end{itemize}
 
