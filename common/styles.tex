@@ -5,7 +5,8 @@
                                 % \DeclareRobustCommand protects \fixme
                                 % from expanding inside \MakeUppercase
 \AtBeginDocument{%
-    \setlength{\parindent}{2.5em}                   % Абзацный отступ. Должен быть одинаковым по всему тексту и равен пяти знакам (ГОСТ Р 7.0.11-2011, 5.3.7).
+    % \setlength{\parindent}{2.5em}                   % Абзацный отступ. Должен быть одинаковым по всему тексту и равен пяти знакам (ГОСТ Р 7.0.11-2011, 5.3.7).
+    \setlength{\parindent}{1.25cm}                   % Абзацный отступ. Должен быть одинаковым по всему тексту и равен пяти знакам (ГОСТ Р 7.0.11-2011, 5.3.7).
 }
 
 %%% Таблицы %%%
@@ -310,8 +311,8 @@
 
 %%% Макет страницы %%%
 % Выставляем значения полей (ГОСТ 7.0.11-2011, 5.3.7)
-% \geometry{a4paper, top=2cm, bottom=2cm, left=3cm, right=1cm, nofoot, nomarginpar} %, heightrounded, showframe
-\geometry{a4paper, top=2cm, bottom=2cm, left=3cm, right=1cm, nomarginpar} %, heightrounded, showframe
+\geometry{a4paper, top=2cm, bottom=2cm, left=3cm, right=1cm, nofoot, nomarginpar} %, heightrounded, showframe
+% \geometry{a4paper, top=2cm, bottom=2cm, left=3cm, right=1cm, nomarginpar} %, heightrounded, showframe
 \setlength{\topskip}{0pt}   %размер дополнительного верхнего поля
 \setlength{\footskip}{12.3pt} % снимет warning, согласно https://tex.stackexchange.com/a/334346
 
@@ -401,20 +402,21 @@
 %%% Оформление заголовков глав, разделов, подразделов %%%
 %% Работа должна быть выполнена ... размером шрифта 12-14 пунктов (ГОСТ Р 7.0.11-2011, 5.3.8). То есть не должно быть надписей шрифтом более 14. Так и поставим.
 %% Эти установки будут давать одинаковый результат независимо от выбора базовым шрифтом 12 пт или 14 пт
-\newcommand{\basegostsectionfont}{\fontsize{14pt}{16pt}\selectfont\bfseries}
+\newcommand{\basegostsectionfont}{\fontsize{14pt}{16pt}\selectfont\bfseries\normalfont}
 
 \makechapterstyle{thesisgost}{%
 	\chapterstyle{default}
 	\setlength{\beforechapskip}{0pt}
 	\setlength{\midchapskip}{0pt}
-	\setlength{\afterchapskip}{\theintvl\curtextsize}
+	% \setlength{\afterchapskip}{\theintvl\curtextsize}
+	\setlength{\afterchapskip}{\baselineskip}
 	% \renewcommand*{\chapnamefont}{\basegostsectionfont}
 	% \renewcommand*{\chapnumfont}{\basegostsectionfont}
 	% \renewcommand*{\chaptitlefont}{\basegostsectionfont}
 	\renewcommand*{\chapnamefont}{\normalfont}
 	\renewcommand*{\chapnumfont}{\normalfont}
 	\renewcommand*{\chaptitlefont}{\normalfont}
-	\renewcommand*{\chapterheadstart}{}
+	\renewcommand*{\chapterheadstart}{\hspace{\otstuplen}}
 	\ifnumgreater{\value{headingdelim}}{0}{%
 		\renewcommand*{\afterchapternum}{.\space}   % добавляет точку с пробелом после номера раздела
 	}{%
@@ -433,7 +435,44 @@
 }
 \makeatother
 
-\chapterstyle{thesisgost}
+
+%%% центрированный
+
+\makechapterstyle{thesisgostcenter}{%
+	\chapterstyle{default}
+	\setlength{\beforechapskip}{0pt}
+	\setlength{\midchapskip}{0pt}
+	% \setlength{\afterchapskip}{\theintvl\curtextsize}
+	\setlength{\afterchapskip}{\baselineskip}
+	% \renewcommand*{\chapnamefont}{\basegostsectionfont}
+	% \renewcommand*{\chapnumfont}{\basegostsectionfont}
+	% \renewcommand*{\chaptitlefont}{\basegostsectionfont}
+	\renewcommand*{\chapnamefont}{\normalfont}
+	\renewcommand*{\chapnumfont}{\normalfont}
+	\renewcommand*{\chaptitlefont}{\normalfont}
+	\renewcommand*{\chapterheadstart}{}
+	\ifnumgreater{\value{headingdelim}}{0}{%
+		\renewcommand*{\afterchapternum}{.\space}   % добавляет точку с пробелом после номера раздела
+	}{%
+		\renewcommand*{\afterchapternum}{\quad}     % добавляет \quad после номера раздела
+	}
+	\renewcommand*{\printchapternum}{\centering\chapnumfont \thechapter}
+	\renewcommand*{\printchaptername}{}
+	\renewcommand*{\printchapternonum}{\centering}
+}
+
+%%%
+
+\makeatletter
+\makechapterstyle{thesisgostchapname}{%
+	\chapterstyle{thesisgostcenter}
+	\renewcommand*{\printchapternum}{\chapnumfont \thechapter}
+	\renewcommand*{\printchaptername}{\centering\chapnamefont \@chapapp} %
+}
+\makeatother
+
+
+\chapterstyle{thesisgostcenter}
 
 % \setsecheadstyle{\basegostsectionfont\hdngalign}
 \setsecheadstyle{\basegostsectionfont\hspace{\otstuplen}}

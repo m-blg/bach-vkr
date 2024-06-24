@@ -73,7 +73,7 @@
 \section{Грамматический разбор}
 \label{pass:parsing}
 
-Далее будет рассмотрен грамматический разбор или парсинг потока токенов, получаемый после прохода лексера.
+Далее будет рассмотрен грамматический разбор или парсинг потока токенов, получаемого после прохода лексера.
 Грамматический разбор - процесс превращения потока(последовательности) лексических единиц в синтаксическое дерево, рассматриваемое далее[\ref{parsing:ast}].
 Разбор производится методом рекурсивного спуска, который рассматривается далее[\ref{parsing:rec-desc}]. Для разбора выражений используется парсер Пратта, рассмотренные далее в параграфе[\ref{pass:parsing:pratt}].
 
@@ -252,7 +252,7 @@ struct_def(C_Ast_Node, {
 Данные макросы выделяют достаточное кол-во памяти под данный тип элемента AST, и заполняют его приведенными полями.
 
 % \section{@ директивы}
-Отдельным элементом стоят @ директивы, добавленные в расширении.
+Отдельным элементом AST стоят @ директивы, добавленные в расширении.
 Далее привожу их грамматику:
 
 % \clearpage
@@ -279,6 +279,7 @@ literal:
 \end{lstlisting}
 
 \section{Контекстная зависимость грамматики Си}
+\label{parsing:context-dep}
 
 Грамматика фразовых структур языка Си, приведенная в стандарте\cite{c99_std} (Annex A, 2. Phrase structure grammar),
 по большей части является контекстно свободной, однако зависимость от контекста, можно показать на следующем примере(пример взять из статьи\cite{eli_c_cs}):
@@ -399,7 +400,76 @@ ec_parse_translation_unit(ParserState *state, EC_Ast_TranslationUnit **out_tr_un
 }
 \end{lstlisting}
 
+Данная функция в цикле, пока есть неразобранные токены, по первому токену в зависимости о того, 
+является ли он символом @ или нет, разбирает директиву или определение языка Си. 
+Разобранные элементы добавляются в список элементов единицы трансляции.
+В конце конструируется элемент AST с помощью макроса \verb|make_node| с использованием данного списка элементов.
 
+Так как EC откладывает разбор выражений, на данном этапе глобальная таблица символов не конструируется.
+
+Директивы разбираются согласно приведенной выше грамматики[\ref{parsing:at-directive:grammar}].
+Функции разбора определений можно посмотреть в приложении[\ref{extras:parse_decl}].
+
+Для полноты рассмотрим также функцию разбора элементов составного утверждения вида
+
+\begin{lstlisting}[language=c]
+{
+    ...
+}
+\end{lstlisting}
+
+\begin{lstlisting}[language=c, caption={Функция разбора элеметов составного утверждения}, label={parsing:c-parse-block}]
+ParsingError
+c_parse_block(ParserState *state, C_SymbolTable *scope, darr_T(C_Ast_BlockItem *) *out_items) {
+    auto prev = parser_save(state);
+    if (*scope == nullptr) {
+        PARSER_ALLOC_HANDLE(hashmap_new_cap_in_T(C_Symbol, C_SymbolData, 8, &state->ast_alloc, scope));
+    }
+    darr_t items = nullptr;
+    PARSER_ALLOC_HANDLE(darr_new_cap_in_T(C_Ast_BlockItem *, 8, &state->ast_alloc, &items));
+    
+    c_environment_push_scope(&state->env, scope);
+
+    while (true) {
+        if (parser_peek_punct_kind(state, C_PUNCT_RIGHT_BRACE)) {
+            break;
+        }
+        if (parser_peek_punct_kind(state, C_PUNCT_SEMI_COLON) || 
+            c_token_is_type_name_beginning(state->env, parser_peek(state))) 
+        {
+            C_Ast_Decl *block_item = nullptr;
+            PARSER_TRY(c_parse_decl(state, &block_item))
+            PARSER_ALLOC_HANDLE(darr_push(&items, &block_item));
+            if (state->collect_symbols) {
+                if (!c_parser_scope_collect_symbols_decl(state, scope, block_item)) {
+                    PARSING_NONE(state, &prev);
+                }
+            }
+        } else {
+            C_Ast_Stmt *block_item = nullptr;
+            PARSER_TRY(c_parse_stmt(state, &block_item))
+            PARSER_ALLOC_HANDLE(darr_push(&items, &block_item));
+        }
+    }
+
+    c_environment_pop_scope(&state->env);
+    *out_items = items;
+
+    PARSING_OK(state);
+}
+\end{lstlisting}
+ 
+
+В данном случае разбор не откладывается и выполняется линейно с использованием окружения \verb|state->env|, рассмотренного ранее[\ref{parsing:context-dep}]. 
+Т.к. составные утверждения вводят новую область видимости, данная функция создаёт новую таблицу символов, 
+реализующую локальную область видимости (local scope), и добавляет ее в стек окружения \verb|state->env|. 
+
+При разборе эта функция последовательно заполняет таблицу символов с помощью вызовов функций \verb|c_parser_scope_collect_symbols_decl| и тут же использует ее для последующего разбора.
+
+Используемая в цикле функция \verb|c_token_is_type_name_beginning| проверяет, является ли токен началом имени типа, используя окружение \verb|state->env|.
+В зависимости от этого выбирается, что разбирать дальше определение или утверждение.
+
+Подробно в данной главе я рассмотрю только разбор выражений, некоторые функции разбора определений и утверждений можно посмотреть в соответствующих приложениях \ref{extras:parse_decl} и \ref{extras:parse_stmt}.
 
 % \section{Идентификаторы и литералы}
 
@@ -427,7 +497,7 @@ ec_parse_translation_unit(ParserState *state, EC_Ast_TranslationUnit **out_tr_un
 \clearpage
 \section{Выражения}
 
-Следующая диаграмма[\ref{parsing:expr-ast-diag}] иллюстрирует структуру AST для выражении языка Си: 
+Следующая диаграмма[\ref{parsing:expr-ast-diag}] иллюстрирует структуру AST для выражений языка Си: 
 
 % \begin{tikzpicture}[
 % roundnode/.style={ellipse, draw=black!60, fill=green!0, very thick, minimum size=7mm},
@@ -525,6 +595,8 @@ ParsingError
 c_parse_expr(ParserState *state, C_Ast_Expr **out_expr);
 \end{lstlisting}
 
+Также, поскольку грамматика выражений Си является контекстно зависимой, то используется окружение(рассмотренное выше[\ref{parsing:context-dep}]), для разрешения имен,
+в частности для проверки является ли имя идентификатора именем типа или нет.
 
 Графическое изображение AST выражения см. далее[\ref{pratt:right-lean-diag}] и [\ref{graphviz:expr}]
 

@@ -46,6 +46,7 @@
 
 \include{Dissertation/contents}        % Оглавление
 \include{Dissertation/acronyms}        % Список сокращений и условных обозначений
+\include{Dissertation/dictionary}        
 \pagenumbering{arabic}
 
 \setcounter{page}{3}    % введение с 3й страницы
@@ -62,10 +63,39 @@
 \ifnumequal{\value{contnumtab}}{1}{\counterwithout{table}{chapter}
 }{\counterwithin{table}{chapter}}
 
+%%% В основном тексте выравниваем главы по параграфу
+\makeatletter
+\makechapterstyle{thesisgostchapname}{%
+	\chapterstyle{thesisgost}
+	\renewcommand*{\printchapternum}{\chapnumfont \thechapter}
+	\renewcommand*{\printchaptername}{\hdngalign\chapnamefont \@chapapp} %
+}
+\makeatother
+\chapterstyle{thesisgost}
+
+\ifnumequal{\value{chapstyle}}{1}{%
+	\chapterstyle{thesisgostchapname}
+	\renewcommand*{\cftchaptername}{\chaptername\space} % будет вписано слово Глава перед каждым номером раздела в оглавлении
+}{}%
+%%%
+
 \include{Dissertation/chapter1}           % Глава 1
 \include{Dissertation/chapter2}           % Глава 2
 % \include{Dissertation/chapter3}           % Глава 3
 % \include{Dissertation/chapter4}           % Глава 4
+
+
+%%% Далее центруем обратно
+\makeatletter
+\makeatletter
+\makechapterstyle{thesisgostchapname}{%
+	\chapterstyle{thesisgostcenter}
+	\renewcommand*{\printchapternum}{\chapnumfont \thechapter}
+	\renewcommand*{\printchaptername}{\centering\chapnamefont \@chapapp} %
+}
+\makeatother
+\chapterstyle{thesisgostcenter}
+%%%
 
 \include{Dissertation/conclusion}      % Заключение
 % \include{Dissertation/lists}           % Списки таблиц и изображений (иллюстративный материал)
