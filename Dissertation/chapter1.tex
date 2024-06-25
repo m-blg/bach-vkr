@@ -46,7 +46,7 @@ EC реализует систему директив, выполняющих ф
 \begin{itemize}
 \item \verb|@derive(identifier)| применяет к следующему за директивой определению макро-функцию вывода указанную в \verb|identifier|
 \item \verb|@derive_macro(identifier)| регистрирует следующее за директивой определение функции как макро-функцию вывода адресуемую с помощью \verb|identifier|
-\item \verb|@post_include(string-literal)| при трансляции в язык Си заменяется на обычную директиву препроцессора\break \verb|#include string-literal|
+\item \verb|@post_include(string-literal)| при трансляции в язык Си заменяется на обычную директиву препроцессора \verb|#include string-literal|
 \end{itemize}
 
 С помощью данных директив в EC реализованна система макросов. На данный момент реализованны только макросы вывода (derive macro).

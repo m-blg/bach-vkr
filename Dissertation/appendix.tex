@@ -1,5 +1,22 @@
+\newcommand{\nocontentsline}[3]{}
+\newcommand{\tocless}[2]{\bgroup\let\addcontentsline=\nocontentsline#1{#2}\egroup}
+% \tocless\section{hide}
+% \tocless\subsection{subhide}
 
-\chapter{Проекты}
+\begingroup
+\begin{center}
+ПРИЛОЖЕНИЯ
+\end{center}
+
+\addcontentsline{toc}{chapter}{ПРИЛОЖЕНИЯ} 
+\let\clearpage\relax
+\tocless\chapter{Проекты}
+\endgroup
+
+% \begin{center}
+%     Проекты
+% \end{center}
+
 \begin{itemize}
 \item\label{extras:ecc} Проект ecc: \url{https://github.com/m-blg/c_lang}
 
@@ -7,7 +24,37 @@
 \end{itemize}
 
 
-\chapter{Детали реализации}
+
+
+
+\makepagestyle{appendixpage}
+
+% \makeevenhead{appendixpage}{}{\rmfamily Приложениe Б}{}
+% \makeoddhead{appendixpage}{}{\rmfamily Приложениe Б}{}
+% \makeevenfoot{appendixpage}{}{\rmfamily\small\thepage}{}
+% \makeoddfoot{appendixpage}{}{\rmfamily\small\thepage}{}
+
+
+\makeevenhead{appendixpage}{}{\rmfamily Продолжение Приложения Б}{}
+\makeoddhead{appendixpage}{}{\rmfamily Продолжение Приложения Б}{}
+\makeevenfoot{appendixpage}{}{\rmfamily\small\thepage}{}
+\makeoddfoot{appendixpage}{}{\rmfamily\small\thepage}{}
+
+
+\pagestyle{appendixpage}
+
+\newgeometry{a4paper, top=2cm, bottom=2cm, left=3cm, right=1cm, nofoot, nomarginpar, includehead} %, heightrounded, showframe
+\tocless\chapter{Детали реализации}
+
+
+
+% \pagestyle{apppages}
+% \geometry{a4paper, top=2cm, bottom=2cm, left=3cm, right=1cm, nofoot, nomarginpar, includehead} %, heightrounded, showframe
+
+
+% \newgeometry{a4paper, top=2cm, bottom=2cm, left=3cm, right=1cm, nofoot, nomarginpar, includehead} %, heightrounded, showframe
+% \let\clearpage\relax
+
 % \section*{Примитивы}
 % \subsection*{Аллокаторы}
 % \lstinputlisting[language={c},caption={glibc аллокатор},label={extras:glibc_alloc}]{listings/intro/c_alloc.c}
@@ -18,33 +65,37 @@
 % \lstinputlisting[language={c},caption={Имплементация основных методов StringFormatter},label={extras:fmt_impl}]{listings/intro/fmt.c}
 
 
-\section*{Лексический разбор}
+% \section*{Лексический разбор}
 
-\subsection*{Определения Си}
+\section*{Определения Си}
+
+% \setlength{\topskip}{\baselineskip}   %размер дополнительного верхнего поля
+
+
 \lstinputlisting[language={c},caption={defs.h},label={extras:c_defs}]{listings/lexing/def.h}
 
-\subsection*{Структура токена Си}
+\section*{Структура токена Си}
 \lstinputlisting[language={c},caption={Структура токена Си},label={extras:c_token}]{listings/lexing/token.c}
 
-\subsection*{Примеры функций лексического разбора}
+\section*{Примеры функций лексического разбора}
 \lstinputlisting[language={c},caption={Примеры функций лексического разбора},label={extras:lexer_fns}]{listings/lexing/lexer_fns.c}
 
-\subsection*{Функции отладочного форматирования токенов}
+\section*{Функции отладочного форматирования токенов}
 \lstinputlisting[language={c},caption={Функции отладочного форматирования токенов},label={extras:token_dbg_print}]{listings/lexing/token.c}
 
 
-\subsection*{Функция препроцессора}
+\section*{Функция препроцессора}
 \lstinputlisting[language={c},caption={Реализация препроцессора},label={extras:pp}]{listings/pp/tokenize.c}
 
 
-\section*{Грамматический разбор}
-\subsection*{Абстрактное синтаксическое дерево}
+% \section*{Грамматический разбор}
+\section*{Абстрактное синтаксическое дерево}
 \lstinputlisting[language={c},caption={C AST},label={extras:c_ast}]{listings/parsing/ast.c}
 
-\subsection*{Функции разбора выражений}
+\section*{Функции разбора выражений}
 \lstinputlisting[language={c},caption={Функции разбора выражений},label={extras:parse_expr}]{listings/parsing/expr.c}
 
-\subsection*{Функции разбора определений}
+\section*{Функции разбора определений}
 \lstinputlisting[language={c},caption={Функции разбора определений},label={extras:parse_decl}]{listings/parsing/decl.c}
 
 % \subsection*{Функции разбора утверждений}
@@ -54,13 +105,16 @@
 % \lstinputlisting[language={c},caption={Функция разбора единицы трансляции},label={extras:parse_tr_unit}]{listings/parsing/tr_unit.c}
 
 
-\section*{Трансляция Ast}
-\subsection*{Пример функций трансляции AST в язык Си}
+% \section*{Трансляция Ast}
+\section*{Пример функций трансляции AST в язык Си}
 \lstinputlisting[language={c},caption={Функции трансляции AST в Си},label={extras:unparse}]{listings/translation/unparse/unparse.c}
 
-\subsection*{Пример функций трансляции AST в graphviz}
+\section*{Пример функций трансляции AST в graphviz}
 % label always after caption
 \lstinputlisting[language={c},caption={Функции трансляции в graphviz},label={extras:compile-graphviz}]{listings/translation/ast_vis/graphviz.c}
+
+
+% \pagestyle{plain}
 
 % \section{Упорядочевание определений}
 % \lstinputlisting[language={c},caption={Функции прохода упорядочевания},label={extras:pass:ordering}]{listings/ordering/pass.c}

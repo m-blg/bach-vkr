@@ -24,8 +24,10 @@
     }
 
     \ifnumequal{\value{fontfamily}}{1}{                    % Семейство MS шрифтов
-        \setmonofont{Courier New}                          % моноширинный шрифт
-        \newfontfamily\cyrillicfonttt{Courier New}         % моноширинный шрифт для кириллицы
+        % \setmonofont{Courier New}                          % моноширинный шрифт
+        % \newfontfamily\cyrillicfonttt{Courier New}         % моноширинный шрифт для кириллицы
+        \setmonofont{Noto Sans Mono}                          % моноширинный шрифт
+        \newfontfamily\cyrillicfonttt{Noto Sans Mono}         % моноширинный шрифт для кириллицы
         \defaultfontfeatures{Ligatures=TeX}                % стандартные лигатуры TeX, замены нескольких дефисов на тире и т. п. Настройки моноширинного шрифта должны идти до этой строки, чтобы при врезках кода программ в коде не применялись лигатуры и замены дефисов
         \setmainfont{Times New Roman}                      % Шрифт с засечками
         \newfontfamily\cyrillicfont{Times New Roman}       % Шрифт с засечками для кириллицы
@@ -49,3 +51,9 @@
         \IfFileExists{pscyr.sty}{\renewcommand{\rmdefault}{ftm}}{}
     }{}
 \fi
+
+\makeatletter
+\newcommand{\verbatimfont}[1]{\def\verbatim@font{#1}}%
+\makeatother
+
+\verbatimfont{\normalfont}

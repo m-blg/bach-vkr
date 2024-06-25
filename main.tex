@@ -95,6 +95,11 @@
 }
 \makeatother
 \chapterstyle{thesisgostcenter}
+\ifnumequal{\value{chapstyle}}{1}{%
+	\chapterstyle{thesisgostchapname}
+	\renewcommand*{\cftchaptername}{\chaptername\space}
+}{}%
+
 %%%
 
 \include{Dissertation/conclusion}      % Заключение
@@ -108,12 +113,16 @@
 
 \setcounter{totalchapter}{\value{chapter}} % Подсчёт количества глав
 
+
+% \chapter*{ПРИЛОЖЕНИЯ}
 %%% Настройки для приложений
 \appendix
 % Оформление заголовков приложений ближе к ГОСТ:
 \setlength{\midchapskip}{20pt}
 \renewcommand*{\afterchapternum}{\par\nobreak\vskip \midchapskip}
 \renewcommand\thechapter{\Asbuk{chapter}} % Чтобы приложения русскими буквами нумеровались
+
+\setsecheadstyle{\centering\basegostsectionfont\hspace{\otstuplen}}
 
 \include{Dissertation/appendix}        % Приложения, тут же свои публикации
 
