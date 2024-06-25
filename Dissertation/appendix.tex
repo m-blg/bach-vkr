@@ -1,21 +1,20 @@
 \newcommand{\nocontentsline}[3]{}
-% \newcommand{\tocless}[2]{\bgroup\let\addcontentsline=\nocontentsline#1{#2}\egroup}
+\newcommand{\tocless}[2]{\bgroup\let\addcontentsline=\nocontentsline#1{#2}\egroup}
 % \tocless\section{hide}
 % \tocless\subsection{subhide}
-\begingroup
-\let\clearpage\relax
-% \let\addcontentsline=\nocontentsline#1{#2}
-\renewcommand{\addcontentsline}[3]{\nocontentsline{#1}{#2}{#3}}
 % \begingroup
-\begin{center}
-ПРИЛОЖЕНИЯ
-\end{center}
+% \let\clearpage\relax
+% % \let\addcontentsline=\nocontentsline#1{#2}
+% \renewcommand{\addcontentsline}[3]{\nocontentsline{#1}{#2}{#3}}
+% % \begingroup
+% \begin{center}
+% ПРИЛОЖЕНИЯ
+% \end{center}
 
 % \addcontentsline{toc}{chapter}{ПРИЛОЖЕНИЯ} 
-\chapter{Проекты}
-\endgroup
+\tocless\chapter{Проекты}
+% \endgroup
 
-\addcontentsline{toc}{chapter}{ПРИЛОЖЕНИЯ} 
 % \endgroup
 
 % \begin{center}
@@ -51,10 +50,12 @@
 % \newgeometry{a4paper, top=2cm, bottom=2cm, left=3cm, right=1cm, nofoot, nomarginpar, includehead} %, heightrounded, showframe
 % \tocless\chapter{Детали реализации}
 
-\begingroup
-\renewcommand{\addcontentsline}[3]{\nocontentsline{#1}{#2}{#3}}
-\chapter{Детали реализации}
-\endgroup
+% \begingroup
+% \renewcommand{\addcontentsline}[3]{\nocontentsline{#1}{#2}{#3}}
+% \chapter{Детали реализации}
+% \endgroup
+
+\tocless\chapter{Детали реализации}
 
 
 % \pagestyle{apppages}
@@ -85,7 +86,7 @@
 \clearpage
 \newgeometry{a4paper, top=2cm, bottom=2cm, left=3cm, right=1cm, nomarginpar, includehead} %, heightrounded, showframe
 
-\lstinputlisting[language={c}, firstline=30 firstnumber=30, caption={defs.h}]{listings/lexing/def.h}
+\lstinputlisting[language={c}, firstline=30, firstnumber=30, caption={defs.h}]{listings/lexing/def.h}
 
 \section*{Структура токена Си}
 \lstinputlisting[language={c},caption={Структура токена Си},label={extras:c_token}]{listings/lexing/token.c}
@@ -111,7 +112,7 @@
 \section*{Функции разбора определений}
 \lstinputlisting[language={c},caption={Функции разбора определений},label={extras:parse_decl}]{listings/parsing/decl.c}
 
-\subsection*{Функции разбора утверждений}
+\section*{Функции разбора утверждений}
 \lstinputlisting[language={c},caption={Функции разбора утдверждений},label={extras:parse_stmt}]{listings/parsing/stmt.c}
 
 % \subsection*{Функция разбора единицы трансляции}

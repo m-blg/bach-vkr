@@ -55,7 +55,7 @@ struct_def(C_Token, {
   \item \verb|C_TokenPunct| - знак препинания(пунктуатор), например:
   \verb|;|, \verb|{|, \verb|++|
 
-  \item \verb|C_TokenComment| - комментарий, например:
+  \item \verb|C_TokenComment| - комментарий, например:\newline
   \verb|// comment|, \verb|/* muliline comment */|
 
   \item \verb|C_TokenStringLiteral| - строковой литерал, например: \verb|"text"|
@@ -267,7 +267,7 @@ Token:
 Реализицию препроцессора можно посмотреть в приложении[\ref{extras:pp}].
 
 При работе препроцессора, директивы \verb|#include| заменяются токеном \verb|C_TokenInclude|, \\
-дерективы \verb|#define| регистрируют токены макроса в хеш-таблице \verb|LexerState::pp_defs|, \\
+дерективы \verb|#define| регистрируют токены макроса в хеш-таблице \newline\verb|LexerState::pp_defs|, \\
 дерективы \verb|#ifdef|, \verb|#ifndef|, \verb|#else|, \verb|#endif| условно влючают или исключают блоки кода, 
 с помощью \verb|LexerState::pp_if_depth|(глубина \verb|#if| стека) и \verb|LexerState::pp_defs|, \\
 идентификаторы проверяются на наличие в таблице \verb|LexerState::pp_defs|, и при наличи заменяются токеном \verb|C_TokenExpand|,
